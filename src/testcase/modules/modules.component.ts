@@ -20,6 +20,7 @@ import { ActivatedRoute, ParamMap, RouterModule } from '@angular/router';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
 import { TestCase } from 'src/app/shared/data/dummy-testcases';
 import { AutoSaveService } from 'src/app/shared/services/auto-save.service';
+import { AlertComponent } from "src/app/shared/alert/alert.component";
 
 interface Filter {
   slNo: string;
@@ -48,7 +49,7 @@ interface UploadedFile {
 @Component({
   selector: 'app-modules',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, AlertComponent],
   templateUrl: './modules.component.html',
   styleUrls: ['./modules.component.css']
 })
@@ -92,6 +93,13 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   scrollContainer: HTMLElement | null = null;
   canScrollLeft = false;
   canScrollRight = false;
+
+  // Alert properties
+  alertMessage = '';
+  alertType: 'success' | 'error' | 'warning' | 'info' = 'success';
+  showAlert = false;
+  alertDuration = 3000;
+  private alertTimeout: any;
 
   private boundHandleClick = this.handleDocumentClick.bind(this);
   private boundOnResize = this.onResize.bind(this);
@@ -151,6 +159,9 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     document.removeEventListener('mousemove', this.boundOnResize);
     document.removeEventListener('mouseup', this.boundStopResize);
     window.removeEventListener('resize', this.updateScrollButtons.bind(this));
+    if (this.alertTimeout) {
+      clearTimeout(this.alertTimeout);
+    }
   }
 
   extractAvailableAttributes(): void {
@@ -271,6 +282,7 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
 
     updatedTestCases.forEach(tc => this.testCaseService.updateTestCase(tc));
     this.testCasePool = [...this.testCaseService.getTestCases()];
+    console.log('Changes saved successfully!', 'success');
     this.cdRef.detectChanges();
   }
 
@@ -306,26 +318,25 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   openPopup(index: number, field: 'actual' | 'remarks', event: MouseEvent) {
     event.stopPropagation();
 
-      if (!(this.isPopupOpen && this.popupIndex === index && this.popupField === field)) {
-    this.closePopup(this.popupIndex!);
-    
-    this.popupIndex = index;
-    this.popupField = field;
-    this.isPopupOpen = true;
+    if (!(this.isPopupOpen && this.popupIndex === index && this.popupField === field)) {
+      this.closePopup(this.popupIndex!);
+      
+      this.popupIndex = index;
+      this.popupField = field;
+      this.isPopupOpen = true;
 
-    setTimeout(() => {
-      document.addEventListener('click', this.boundHandleClick);
-    });
+      setTimeout(() => {
+        document.addEventListener('click', this.boundHandleClick);
+      });
+    }
   }
-}
+
   saveAndClosePopup(index: number): void {
-  if (this.popupIndex === index) {
-    // Trigger change detection to ensure form values are updated
-    this.cdRef.detectChanges();
-    this.closePopup(index);
+    if (this.popupIndex === index) {
+      this.cdRef.detectChanges();
+      this.closePopup(index);
+    }
   }
-}
-
 
   closePopup(index: number) {
     if (this.popupIndex === index) {
@@ -343,17 +354,18 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     return control as FormControl;
   }
 
-private handleDocumentClick(event: MouseEvent) {
-  if (this.isPopupOpen && this.popupIndex !== null) {
-    const target = event.target as HTMLElement;
-    const isInsidePopup = target.closest('.popup-box');
-    const isPopupTrigger = target.closest('.popup-cell');
-    
-    if (!isInsidePopup && !isPopupTrigger) {
-      this.closePopup(this.popupIndex);
+  private handleDocumentClick(event: MouseEvent) {
+    if (this.isPopupOpen && this.popupIndex !== null) {
+      const target = event.target as HTMLElement;
+      const isInsidePopup = target.closest('.popup-box');
+      const isPopupTrigger = target.closest('.popup-cell');
+      
+      if (!isInsidePopup && !isPopupTrigger) {
+        this.closePopup(this.popupIndex);
+      }
     }
   }
-}
+
   scrollTable(offset: number): void {
     if (!this.scrollContainer) return;
     this.scrollContainer.scrollLeft += offset;
@@ -400,11 +412,36 @@ private handleDocumentClick(event: MouseEvent) {
   copyTestCaseLink(testCaseId: string): void {
     const copyUrl = `${window.location.origin}/tester/view-testcase/${testCaseId}`;
     navigator.clipboard.writeText(copyUrl)
-      .then(() => alert("Link copied to clipboard!"))
+      .then(() => {
+        this.showAlertMessage('Link copied to clipboard!', 'success');
+      })
       .catch(err => {
         console.error('Failed to copy: ', err);
-        alert("Failed to copy link");
+        this.showAlertMessage('Failed to copy link', 'error');
       });
+  }
+
+  // Alert helper methods
+  showAlertMessage(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success'): void {
+    this.alertMessage = message;
+    this.alertType = type;
+    this.showAlert = true;
+    
+    if (this.alertTimeout) {
+      clearTimeout(this.alertTimeout);
+    }
+    
+    this.alertTimeout = setTimeout(() => {
+      this.showAlert = false;
+      this.cdRef.detectChanges();
+    }, this.alertDuration);
+  }
+
+  onAlertClose(): void {
+    this.showAlert = false;
+    if (this.alertTimeout) {
+      clearTimeout(this.alertTimeout);
+    }
   }
 
   onImageLoad(event: Event, rowIndex: number, fileIndex: number) {

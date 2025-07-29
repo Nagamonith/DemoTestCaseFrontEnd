@@ -1,3 +1,11 @@
+<app-alert
+  [type]="alertType"
+  [message]="alertMessage"
+  [show]="showAlert"
+  [isConfirm]="isConfirmAlert"
+  (onConfirm)="handleConfirmDelete()"
+  (onCancel)="handleCancelDelete()">
+</app-alert>
 <div class="container">
   <h2 class="header"> Module & Version Management</h2>
 
@@ -27,21 +35,29 @@
 
       <!-- Auto Save Popup -->
       <!-- Auto Save Popup -->
-<div *ngIf="showAutoSavePopup" class="card p-3 mt-2 shadow position-absolute bg-white z-3" style="min-width: 220px;">
-  <div class="auto-save-toggle mb-3 d-flex align-items-center justify-content-between">
-    <label class="form-label mb-0">Auto Save</label>
-    <label class="switch mb-0">
-      <input type="checkbox" [checked]="autoSaveEnabled" (change)="toggleAutoSave()" />
-      <span class="slider round"></span>
-    </label>
-  </div>
-  <div *ngIf="autoSaveEnabled">
-    <label class="form-label">Interval:</label>
-    <select class="form-select" [(ngModel)]="selectedInterval" (change)="updateInterval()">
-      <option *ngFor="let opt of intervalOptions" [value]="opt.value">
-        {{ opt.label }}
-      </option>
-    </select>
+<!-- Auto Save Popup -->
+<div *ngIf="showAutoSavePopup" class="auto-save-popup card p-0 shadow-lg position-absolute" style="width: 260px;">
+  <div class="card-body p-0">
+    <div class="auto-save-toggle p-3 border-bottom">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <label class="form-label mb-1 fw-semibold">Auto Save</label>
+        </div>
+        <label class="switch mb-0">
+          <input type="checkbox" [checked]="autoSaveEnabled" (change)="toggleAutoSave()" />
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div>
+    
+    <div *ngIf="autoSaveEnabled" class="p-3">
+      <label class="form-label mb-2 fw-semibold">Interval</label>
+      <select class="form-select form-select-sm" [(ngModel)]="selectedInterval" (change)="updateInterval()">
+        <option *ngFor="let opt of intervalOptions" [value]="opt.value">
+          {{ opt.label }}
+        </option>
+      </select>
+    </div>
   </div>
 </div>
 
@@ -185,52 +201,73 @@
     </div>
   </div>
 
-  <!-- Modules List -->
-  <div *ngIf="showModuleList" class="modules-section card mt-3">
+ <!-- Modules List -->
+<div *ngIf="showModuleList" class="modules-container">
+  <div class="modules-section card mt-3">
     <div class="card-body">
-      <div class="section-header d-flex justify-content-between align-items-center mb-3">
-        <h4 class="card-title">Modules for {{ getProductName(selectedProductId()) }}</h4>
-        <span class="badge bg-primary rounded-pill">{{ modules().length }} modules</span>
+      <div class="section-header d-flex justify-content-between align-items-center mb-4">
+        <h4 class="card-title">
+          <i class="fas fa-cubes me-2"></i>
+          Modules for {{ getProductName(selectedProductId()) }}
+        </h4>
+        <span class="badge bg-primary rounded-pill">
+          <i class="fas fa-layer-group me-1"></i>
+          {{ modules().length }} module{{ modules().length !== 1 ? 's' : '' }}
+        </span>
+      </div>
+  <div class="text-end mt-3">
+        <button class="btn btn-outline-dark" (click)="showModuleList = false">
+          <i class="fas fa-times"></i> Close Modules
+        </button>
+      </div>
+ 
+      <div *ngIf="modules().length === 0" class="empty-state text-center py-5">
+        <div class="empty-icon mb-3">
+          <i class="fas fa-box-open fa-3x text-muted"></i>
+        </div>
+        <h5 class="text-muted mb-2">No modules found</h5>
+        <p class="text-muted small">Add modules to organize your product versions</p>
       </div>
 
-      <div *ngIf="modules().length === 0" class="empty-state text-center py-4">
-        <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
-        <p class="text-muted">No modules found for this product</p>
-      </div>
-
-      <div *ngFor="let mod of modules()" class="module-item mb-3 p-3 border rounded">
-        <div class="module-info mb-2">
-          <div class="module-name mb-2">
-            <span *ngIf="!mod.editing" class="fw-bold">{{ mod.name }}</span>
-            <input *ngIf="mod.editing" class="form-control" [(ngModel)]="mod.name" />
-            <small class="text-muted ms-2">({{ mod.id }})</small>
+      <div *ngFor="let mod of modules()" class="module-item mb-3 p-3 border-0 rounded shadow-sm">
+        <div class="module-info mb-3">
+          <div class="module-name mb-2 d-flex align-items-center">
+            <span *ngIf="!mod.editing" class="fw-bold text-primary">{{ mod.name }}</span>
+            <input *ngIf="mod.editing" class="form-control form-control-lg" [(ngModel)]="mod.name" />
+            <small class="text-muted ms-2">(ID: {{ mod.id }})</small>
           </div>
           <div class="module-versions">
-            <span *ngIf="versionsByModule()[mod.id]?.length; else noVersions" class="d-flex flex-wrap gap-1">
-              <span class="badge bg-secondary rounded-pill" *ngFor="let ver of versionsByModule()[mod.id]">
+            <span *ngIf="versionsByModule()[mod.id]?.length; else noVersions" class="d-flex flex-wrap gap-2">
+              <span class="badge version-badge" *ngFor="let ver of versionsByModule()[mod.id]">
+                <i class="fas fa-tag me-1"></i>
                 {{ ver }}
               </span>
             </span>
             <ng-template #noVersions>
-              <span class="text-muted">No versions</span>
+              <span class="text-muted small">
+                <i class="fas fa-exclamation-circle me-1"></i>
+                No versions available
+              </span>
             </ng-template>
           </div>
         </div>
-        <div class="module-actions d-flex gap-2">
-          <button *ngIf="!mod.editing" class="btn btn-sm btn-outline-primary" (click)="startEditing(mod)">
-            <i class="fas fa-edit"></i> Edit
+        <div class="module-actions d-flex justify-content-end gap-2">
+          <button *ngIf="!mod.editing" class="btn btn-action btn-edit" (click)="startEditing(mod)">
+            <i class="fas fa-edit me-1"></i> Edit
           </button>
-          <button *ngIf="mod.editing" class="btn btn-sm btn-success" (click)="saveEditing(mod)">
-            <i class="fas fa-check"></i> Save
+          <button *ngIf="mod.editing" class="btn btn-action btn-save" (click)="saveEditing(mod)">
+            <i class="fas fa-check me-1"></i> Save
           </button>
-          <button *ngIf="mod.editing" class="btn btn-silver" (click)="mod.editing = false">
-            <i class="fas fa-times"></i> Cancel
+          <button *ngIf="mod.editing" class="btn btn-action btn-cancel" (click)="mod.editing = false">
+            <i class="fas fa-times me-1"></i> Cancel
           </button>
-          <button class="btn btn-sm btn-outline-danger" (click)="deleteModule(mod.id)">
-            <i class="fas fa-trash"></i> Delete
+          <button class="btn btn-action btn-delete" (click)="deleteModule(mod.id)">
+            <i class="fas fa-trash-alt me-1"></i> Delete
           </button>
         </div>
       </div>
+    </div>
+
 
       <!-- Close Button -->
       <div class="text-end mt-3">

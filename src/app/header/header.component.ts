@@ -1,27 +1,40 @@
 import { CommonModule } from '@angular/common';
-import { Component,HostListener, OnInit } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
-import { firstValueFrom, Subscription } from 'rxjs';
+import { Component, HostListener, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { TranslateModule } from '@ngx-translate/core';
+import { PageTitleService } from 'src/app/shared/services/page-title.service'; // 👈 adjust path if needed
+
 @Component({
-    selector: 'app-header',
-    standalone: true,
-    imports: [
-        CommonModule,
-        TranslateModule
-    ],
-    templateUrl: './header.component.html'
-    
+  selector: 'app-header',
+  standalone: true,
+  imports: [
+    CommonModule,
+    TranslateModule
+  ],
+  templateUrl: './header.component.html',
+  styleUrl: './header.component.css'
+
 })
 export class HeaderComponent implements OnInit {
   dropdownOpen = false;
   selectedItem: string | null = null;
   dataSubscription!: Subscription;
 
-  constructor(private router: Router){}
+  currentPageTitle: string = ''; // 👈 holds the dynamic title
+
+  constructor(
+    private router: Router,
+    private pageTitleService: PageTitleService // 👈 inject the shared service
+  ) {}
 
   ngOnInit(): void {
+    // Subscribe to the title observable
+    this.pageTitleService.pageTitle$.subscribe(title => {
+      this.currentPageTitle = title;
+    });
   }
+
   toggleDropdown(): void {
     this.dropdownOpen = !this.dropdownOpen;
   }
@@ -40,5 +53,4 @@ export class HeaderComponent implements OnInit {
       this.dropdownOpen = false;
     }
   }
- 
 }

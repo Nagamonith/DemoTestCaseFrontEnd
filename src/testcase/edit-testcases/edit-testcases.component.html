@@ -1,5 +1,21 @@
-
+<app-alert
+  [type]="alertType"
+  [message]="alertMessage"
+  [show]="showAlert"
+  [isConfirm]="isConfirmAlert"
+  (onConfirm)="handleConfirmDelete()"
+  (onCancel)="handleCancelDelete()">
+</app-alert>
   <h2 class="text-center">Test Case Management</h2>
+  <!-- <app-alert
+  [type]="alertType"
+  [message]="alertMessage"
+  [show]="showAlert"
+  [isConfirm]="isConfirmAlert"
+  (onConfirm)="handleConfirmDelete()"
+  (onCancel)="handleCancelDelete()">
+</app-alert> -->
+
 
   <!-- Module and Version display -->
   <div class="module-info">
@@ -62,7 +78,7 @@
           </td>
           <td class="actions">
             <button class="btn-small" (click)="startEditing(testCase)">Edit</button>
-            <button class="btn-small-danger" (click)="deleteTestCase(testCase.id)">Delete</button>
+            <button class="btn-small-danger" (click)="deleteTestCase(testCase.id, $event)">Delete</button>
           </td>
         </tr>
       </tbody>

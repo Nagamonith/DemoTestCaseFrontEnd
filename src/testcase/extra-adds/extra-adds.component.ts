@@ -1,14 +1,14 @@
-import { Component, signal, OnInit, computed } from '@angular/core';
+import { Component, signal, OnInit, computed, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProductService, Product } from 'src/app/shared/services/product.service';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
 import { AutoSaveService } from 'src/app/shared/services/auto-save.service';
-
 import {
   faPlus, faCube, faCodeBranch, faList, faCheck, faTimes,
   faSave, faEdit, faTrash, faBoxOpen
 } from '@fortawesome/free-solid-svg-icons';
+import { AlertComponent } from "src/app/shared/alert/alert.component";
 
 interface Module {
   id: string;
@@ -21,7 +21,7 @@ type PendingAction = 'addModule' | 'addVersion' | 'toggleModules' | null;
 @Component({
   selector: 'app-extra-adds',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AlertComponent],
   templateUrl: './extra-adds.component.html',
   styleUrls: ['./extra-adds.component.css']
 })
@@ -60,17 +60,24 @@ export class ExtraAddsComponent implements OnInit {
 
   showAutoSavePopup = false;
 
+  // Alert properties
+  showAlert = false;
+  alertMessage = '';
+  alertType: 'success' | 'error' | 'warning' | 'info' = 'info';
+  isConfirmAlert = false;
+  pendingDeleteId: string | null = null;
+  pendingActionData: any = null;
+
   autoSaveEnabled = true;
-  selectedInterval = 3000; // default to 3 seconds
-intervalOptions = [
-  { label: '3 sec', value: 3000 },
-  { label: '5 sec', value: 5000 },
-  { label: '10 sec', value: 10000 },
-  { label: '30 sec', value: 30000 },
-  { label: '1 min', value: 60000 },
-  { label: '3 min', value: 180000 }
-];
-  
+  selectedInterval = 3000;
+  intervalOptions = [
+    { label: '3 sec', value: 3000 },
+    { label: '5 sec', value: 5000 },
+    { label: '10 sec', value: 10000 },
+    { label: '30 sec', value: 30000 },
+    { label: '1 min', value: 60000 },
+    { label: '3 min', value: 180000 }
+  ];
 
   modules = signal<Module[]>([]);
   versionsByModule = computed(() => {
@@ -84,38 +91,41 @@ intervalOptions = [
   constructor(
     private productService: ProductService,
     private testCaseService: TestCaseService,
-    private autoSaveService: AutoSaveService
+    private autoSaveService: AutoSaveService,
+    private cdr: ChangeDetectorRef
   ) {}
 
-ngOnInit(): void {
-  this.autoSaveEnabled = this.autoSaveService.isEnabled();
-  this.autoSaveService.setInterval(this.selectedInterval);
-  if (this.autoSaveEnabled) {
-    this.autoSaveService.start(() => {
-      console.log('Auto-saving...'); // 🔁 Replace with actual save logic
-    });
+  ngOnInit(): void {
+    this.autoSaveEnabled = this.autoSaveService.isEnabled();
+    this.autoSaveService.setInterval(this.selectedInterval);
+    if (this.autoSaveEnabled) {
+      this.autoSaveService.start(() => {
+        console.log('Auto-saving...');
+      });
+    }
+
+    this.loadProducts();
+    this.modules.set(this.testCaseService.getModules());
   }
 
-  this.loadProducts();
-  this.modules.set(this.testCaseService.getModules());
-}
-toggleAutoSavePopup(): void {
-  this.showAutoSavePopup = !this.showAutoSavePopup;
-}
-toggleAutoSave(): void {
-  this.autoSaveEnabled = this.autoSaveService.toggle();
-  if (this.autoSaveEnabled) {
-    this.autoSaveService.start(() => {
-      console.log('Auto-saving...'); // 🔁 Replace with actual save logic
-    });
-  } else {
-    this.autoSaveService.stop();
+  toggleAutoSavePopup(): void {
+    this.showAutoSavePopup = !this.showAutoSavePopup;
   }
-}
-updateInterval(): void {
-  this.autoSaveService.setInterval(this.selectedInterval);
-}
 
+  toggleAutoSave(): void {
+    this.autoSaveEnabled = this.autoSaveService.toggle();
+    if (this.autoSaveEnabled) {
+      this.autoSaveService.start(() => {
+        console.log('Auto-saving...');
+      });
+    } else {
+      this.autoSaveService.stop();
+    }
+  }
+
+  updateInterval(): void {
+    this.autoSaveService.setInterval(this.selectedInterval);
+  }
 
   loadProducts(): void {
     this.productService.getProducts().subscribe((products) => {
@@ -126,28 +136,28 @@ updateInterval(): void {
     });
   }
 
-  // Product methods
   getProductName(productId: string): string {
     return this.products().find(p => p.id === productId)?.name || 'Unknown Product';
   }
-addProduct(): void {
-  const name = this.newProductName.trim();
-  if (!name) return;
 
-  this.productService.addProduct(name).subscribe({
-    next: () => {
-      this.newProductName = '';
-      this.showAddProductForm = false;
-      this.loadProducts(); // Refresh the product list
-    },
-    error: (err) => {
-      console.error('Failed to add product:', err);
-      alert('Failed to add product. Please try again.');
-    }
-  });
-}
+  addProduct(): void {
+    const name = this.newProductName.trim();
+    if (!name) return;
 
-  // Module methods
+    this.productService.addProduct(name).subscribe({
+      next: () => {
+        this.newProductName = '';
+        this.showAddProductForm = false;
+        this.loadProducts();
+        this.showAlertMessage('Product added successfully', 'success');
+      },
+      error: (err) => {
+        console.error('Failed to add product:', err);
+        this.showAlertMessage('Failed to add product. Please try again.', 'error');
+      }
+    });
+  }
+
   handleAddModule() {
     if (this.products().length === 0) {
       this.showAddProductForm = true;
@@ -161,13 +171,13 @@ addProduct(): void {
     const name = this.newModuleName.trim();
     const version = this.newModuleVersion.trim() || 'v1.0';
     if (!name) {
-      alert('Module name is required');
+      this.showAlertMessage('Module name is required', 'warning');
       return;
     }
 
     const newId = this.testCaseService.addModule(name, version);
     this.modules.set(this.testCaseService.getModules());
-
+    this.showAlertMessage('Module added successfully', 'success');
     this.resetModuleForm();
   }
 
@@ -186,26 +196,24 @@ addProduct(): void {
   saveEditing(module: Module) {
     const name = module.name.trim();
     if (!name) {
-      alert('Module name cannot be empty');
+      this.showAlertMessage('Module name cannot be empty', 'warning');
       return;
     }
 
     this.modules.update(mods =>
       mods.map(m => m.id === module.id ? { ...m, name, editing: false } : m)
     );
+    this.showAlertMessage('Module updated successfully', 'success');
   }
 
   deleteModule(moduleId: string) {
-    if (confirm('Are you sure you want to delete this module and all its versions?')) {
-      this.modules.update(mods => mods.filter(m => m.id !== moduleId));
-      // Note: TestCaseService doesn't support module deletion
-    }
+    this.pendingActionData = { type: 'module', id: moduleId };
+    this.showConfirmAlert('Are you sure you want to delete this module and all its versions?');
   }
 
-  // Version methods
   handleAddVersion() {
     if (this.modules().length === 0) {
-      alert('Please add a module first');
+      this.showAlertMessage('Please add a module first', 'warning');
       return;
     }
     this.pendingAction = 'addVersion';
@@ -215,22 +223,23 @@ addProduct(): void {
   saveVersion() {
     const version = this.newVersionName.trim();
     if (!this.selectedModuleId) {
-      alert('Please select a module');
+      this.showAlertMessage('Please select a module', 'warning');
       return;
     }
 
     if (!version) {
-      alert('Version name is required');
+      this.showAlertMessage('Version name is required', 'warning');
       return;
     }
 
     const existingVersions = this.versionsByModule()[this.selectedModuleId] || [];
     if (existingVersions.includes(version)) {
-      alert('This version already exists for the selected module');
+      this.showAlertMessage('This version already exists for the selected module', 'warning');
       return;
     }
 
     this.testCaseService.addVersion(this.selectedModuleId, version);
+    this.showAlertMessage('Version added successfully', 'success');
     this.resetVersionForm();
   }
 
@@ -240,7 +249,6 @@ addProduct(): void {
     this.showAddVersionForm = false;
   }
 
-  // Toggle modules
   handleToggleModules() {
     if (this.products().length === 0) {
       this.showAddProductForm = true;
@@ -250,10 +258,9 @@ addProduct(): void {
     this.showProductSelectorModal = true;
   }
 
-  // Product selection
   confirmProductSelection() {
     if (!this.selectedProductId()) {
-      alert('Please select a product');
+      this.showAlertMessage('Please select a product', 'warning');
       return;
     }
 
@@ -282,7 +289,7 @@ addProduct(): void {
   saveProductEdit(product: Product) {
     const trimmedName = product.name.trim();
     if (!trimmedName) {
-      alert('Product name cannot be empty');
+      this.showAlertMessage('Product name cannot be empty', 'warning');
       return;
     }
 
@@ -290,31 +297,74 @@ addProduct(): void {
     
     this.productService.updateProduct(product).subscribe({
       next: () => {
-        this.loadProducts(); // Refresh the list
+        this.loadProducts();
+        this.showAlertMessage('Product updated successfully', 'success');
       },
       error: (err) => {
         console.error('Failed to update product:', err);
-        product.editing = true; // Revert to edit mode if error occurs
+        product.editing = true;
+        this.showAlertMessage('Failed to update product. Please try again.', 'error');
       }
     });
   }
 
   deleteProduct(productId: string) {
-    if (confirm('Are you sure you want to delete this product?')) {
-      this.productService.deleteProduct(productId).subscribe({
-        next: () => {
-          this.loadProducts(); // Refresh the list
-          
-          // Reset selected product if it was deleted
-          if (this.selectedProductId() === productId) {
-            this.selectedProductId.set('');
-          }
-        },
-        error: (err) => {
-          console.error('Failed to delete product:', err);
-          alert('Failed to delete product. Please try again.');
-        }
-      });
+    this.pendingActionData = { type: 'product', id: productId };
+    this.showConfirmAlert('Are you sure you want to delete this product?');
+  }
+
+  showConfirmAlert(message: string) {
+    this.alertMessage = message;
+    this.alertType = 'warning';
+    this.isConfirmAlert = true;
+    this.showAlert = true;
+    this.cdr.detectChanges(); // Force immediate update
+  }
+
+  showAlertMessage(message: string, type: 'success' | 'error' | 'warning' | 'info') {
+    this.alertMessage = message;
+    this.alertType = type;
+    this.isConfirmAlert = false;
+    this.showAlert = true;
+    this.cdr.detectChanges(); // Force immediate update
+    
+    if (type !== 'warning') {
+      setTimeout(() => {
+        this.showAlert = false;
+        this.cdr.detectChanges();
+      }, 3000);
     }
+  }
+
+  handleConfirmDelete(): void {
+    if (this.pendingActionData) {
+      if (this.pendingActionData.type === 'product') {
+        this.productService.deleteProduct(this.pendingActionData.id).subscribe({
+          next: () => {
+            this.loadProducts();
+            if (this.selectedProductId() === this.pendingActionData.id) {
+              this.selectedProductId.set('');
+            }
+            this.showAlertMessage('Product deleted successfully', 'success');
+          },
+          error: (err) => {
+            console.error('Failed to delete product:', err);
+            this.showAlertMessage('Failed to delete product. Please try again.', 'error');
+          }
+        });
+      } else if (this.pendingActionData.type === 'module') {
+        this.modules.update(mods => mods.filter(m => m.id !== this.pendingActionData.id));
+        this.showAlertMessage('Module deleted successfully', 'success');
+      }
+    }
+    this.pendingActionData = null;
+    this.pendingDeleteId = null;
+  }
+
+  handleCancelDelete(): void {
+    this.showAlert = false;
+    this.pendingActionData = null;
+    this.pendingDeleteId = null;
+    this.cdr.detectChanges();
   }
 }

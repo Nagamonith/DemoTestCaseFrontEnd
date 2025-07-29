@@ -4,6 +4,9 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
 import { TestCase } from 'src/app/shared/data/dummy-testcases';
+import { AlertComponent } from "src/app/shared/alert/alert.component";
+import { ChangeDetectorRef } from '@angular/core';
+
 
 interface TestCaseFilter {
   slNo: string;
@@ -14,7 +17,7 @@ interface TestCaseFilter {
 @Component({
   selector: 'app-edit-testcases',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterModule, AlertComponent],
   templateUrl: './edit-testcases.component.html',
   styleUrls: ['./edit-testcases.component.css']
 })
@@ -23,6 +26,8 @@ export class EditTestcasesComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private testCaseService = inject(TestCaseService);
+  private cdr = inject(ChangeDetectorRef);
+
 
   selectedModule = signal<string>('');
   selectedVersion = signal<string>('');
@@ -34,6 +39,11 @@ export class EditTestcasesComponent {
     testCaseId: '',
     useCase: ''
   });
+showAlert = false;
+alertMessage = '';
+alertType: 'success' | 'error' | 'warning' = 'warning';
+isConfirmAlert = false;
+pendingDeleteId: string | null = null;
 
   form = this.fb.group({
     id: [''],
@@ -203,12 +213,40 @@ export class EditTestcasesComponent {
     this.cancelEditing();
   }
 
-  deleteTestCase(id: string): void {
-    if (confirm('Are you sure you want to delete this test case?')) {
-      this.testCaseService.deleteTestCase(id);
-      this.loadTestCases(this.selectedModule(), this.selectedVersion());
-    }
+deleteTestCase(id: string, event: MouseEvent): void {
+  event.stopPropagation(); // Prevent event bubbling
+  this.alertMessage = 'Are you sure you want to delete this test case?';
+  this.alertType = 'warning';
+  this.isConfirmAlert = true;
+  this.showAlert = true;
+  this.pendingDeleteId = id;
+  this.cdr.detectChanges(); // Force change detection
+}
+handleConfirmDelete(): void {
+  if (this.pendingDeleteId) {
+    this.testCaseService.deleteTestCase(this.pendingDeleteId);
+    this.loadTestCases(this.selectedModule(), this.selectedVersion());
+    this.pendingDeleteId = null;
+
+    this.alertMessage = 'Test case deleted successfully.';
+    this.alertType = 'success';
+    this.isConfirmAlert = false;
+    this.showAlert = true;
+
+    this.cdr.detectChanges(); // 🔁 force UI update
+    setTimeout(() => {
+      this.showAlert = false;
+      this.cdr.detectChanges();
+    }, 2500);
   }
+}
+
+handleCancelDelete(): void {
+  this.showAlert = false;
+  this.isConfirmAlert = false;
+  this.pendingDeleteId = null;
+  this.cdr.detectChanges(); // 🔁 force UI update
+}
 
   goBack(): void {
     this.router.navigate(['/tester/add-testcases']);

@@ -3,6 +3,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ProductService, Product } from 'src/app/shared/services/product.service';
+import { PageTitleService } from 'src/app/shared/services/page-title.service';
 
 @Component({
   selector: 'app-tester-dashboard',
@@ -22,10 +23,12 @@ export class TesterDashboardComponent implements OnInit {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private productService: ProductService
+    private productService: ProductService,
+    private pageTitleService: PageTitleService
   ) {}
 
   ngOnInit(): void {
+    this.pageTitleService.setTitle('Test Case Management');
     this.route.queryParams.subscribe((params) => {
       if (params['productName']) {
         this.currentProductName = params['productName'];
