@@ -1,0 +1,243 @@
+<div class="container">
+  <h2 class="header"> Module & Version Management</h2>
+
+  <!-- Independent Action Buttons -->
+  <div class="action-buttons d-flex flex-wrap gap-2 align-items-center position-relative">
+    <button class="btn btn-silver" (click)="showAddProductForm = true">
+      <i class="fas fa-plus"></i> Add Product
+    </button>
+    <button class="btn btn-silver" (click)="handleAddModule()">
+      <i class="fas fa-cube"></i> Add Module
+    </button>
+    <button class="btn btn-silver" (click)="handleAddVersion()">
+      <i class="fas fa-code-branch"></i> Add Version
+    </button>
+    <button class="btn btn-silver" (click)="handleToggleModules()">
+      <i class="fas fa-list"></i> {{ showModuleList ? 'Hide' : 'Show' }} Modules
+    </button>
+    <button class="btn btn-silver" (click)="showProducts = !showProducts">
+      <i class="fas fa-box-open"></i> {{ showProducts ? 'Hide' : 'Show' }} Products
+    </button>
+    
+    <!-- Auto Save Toggle Button -->
+    <div class="position-relative">
+      <button class="btn btn-outline-dark" (click)="toggleAutoSavePopup()">
+        <i class="fas fa-save"></i> Auto Save
+      </button>
+
+      <!-- Auto Save Popup -->
+      <!-- Auto Save Popup -->
+<div *ngIf="showAutoSavePopup" class="card p-3 mt-2 shadow position-absolute bg-white z-3" style="min-width: 220px;">
+  <div class="auto-save-toggle mb-3 d-flex align-items-center justify-content-between">
+    <label class="form-label mb-0">Auto Save</label>
+    <label class="switch mb-0">
+      <input type="checkbox" [checked]="autoSaveEnabled" (change)="toggleAutoSave()" />
+      <span class="slider round"></span>
+    </label>
+  </div>
+  <div *ngIf="autoSaveEnabled">
+    <label class="form-label">Interval:</label>
+    <select class="form-select" [(ngModel)]="selectedInterval" (change)="updateInterval()">
+      <option *ngFor="let opt of intervalOptions" [value]="opt.value">
+        {{ opt.label }}
+      </option>
+    </select>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+  <!-- Add Product Form -->
+<!-- Add Product Form -->
+<div *ngIf="showAddProductForm" class="form-section card mt-3">
+  <div class="card-body">
+    <h4 class="card-title">Add New Product</h4>
+    <div class="form-group mb-3">
+      <input 
+        class="form-control" 
+        placeholder="Product name" 
+        [(ngModel)]="newProductName"
+        (keyup.enter)="addProduct()"
+      />
+    </div>
+    <div class="form-actions">
+      <button 
+        class="btn btn-blue me-2" 
+        (click)="addProduct()" 
+        [disabled]="!newProductName.trim()"
+      >
+        <i class="fas fa-check"></i> Add
+      </button>
+      <button class="btn btn-silver" (click)="showAddProductForm = false; newProductName = ''">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+  <!-- Product Selection Modal -->
+  <div *ngIf="showProductSelectorModal" class="modal-overlay">
+    <div class="modal-content card">
+      <div class="card-body">
+        <h4 class="card-title">Select Product</h4>
+        <div class="form-group mb-3">
+          <select class="form-select" [(ngModel)]="selectedProductId">
+            <option value="" disabled>-- Select Product --</option>
+            <option *ngFor="let p of products()" [value]="p.id">{{ p.name }}</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary me-2" (click)="confirmProductSelection()" [disabled]="!selectedProductId">
+            <i class="fas fa-check"></i> Continue
+          </button>
+          <button class="btn btn-silver" (click)="cancelProductSelection()">
+            <i class="fas fa-times"></i> Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Module Form -->
+  <div *ngIf="showAddModuleForm" class="form-section card mt-3">
+    <div class="card-body">
+      <h4 class="card-title">Add Module to {{ getProductName(selectedProductId()) }}</h4>
+      <div class="form-group mb-3">
+        <input class="form-control" placeholder="Module name" [(ngModel)]="newModuleName" />
+      </div>
+      <div class="form-group mb-3">
+        <input class="form-control" placeholder="Initial version (e.g., v1.0)" [(ngModel)]="newModuleVersion" />
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-success me-2" (click)="saveModule()"
+          [disabled]="!newModuleName.trim() || !newModuleVersion.trim()">
+          <i class="fas fa-save"></i> Save Module
+        </button>
+        <button class="btn btn-silver" (click)="showAddModuleForm = false">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Version Form -->
+  <div *ngIf="showAddVersionForm" class="form-section card mt-3">
+    <div class="card-body">
+      <h4 class="card-title">Add Version to Module</h4>
+      <div class="form-group mb-3">
+        <select class="form-select" [(ngModel)]="selectedModuleId">
+          <option value="" disabled>-- Select Module --</option>
+          <option *ngFor="let mod of modules()" [value]="mod.id">{{ mod.name }}</option>
+        </select>
+      </div>
+      <div class="form-group mb-3">
+        <input class="form-control" placeholder="Version name (e.g., v1.1)" [(ngModel)]="newVersionName" />
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-info me-2" (click)="saveVersion()"
+          [disabled]="!selectedModuleId || !newVersionName.trim()">
+          <i class="fas fa-save"></i> Save Version
+        </button>
+        <button class="btn btn-silver" (click)="showAddVersionForm = false">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products List -->
+  <div *ngIf="showProducts" class="products-list card mt-3">
+    <div class="card-body">
+      <h4 class="card-title">Product Management</h4>
+      
+      <div *ngFor="let product of products()" class="product-item mb-3 p-3 border rounded">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="product-info">
+            <!-- Display mode -->
+            <span *ngIf="!product.editing" class="fw-bold">{{ product.name }}</span>
+            
+            <!-- Edit mode -->
+            <div *ngIf="product.editing" class="edit-form d-flex gap-2">
+              <input type="text" [(ngModel)]="product.name" class="form-control">
+              <button class="btn btn-sm btn-success" (click)="saveProductEdit(product)">
+                <i class="fas fa-check"> edit</i>
+              </button>
+              <button class="btn btn-sm btn-secondary" (click)="product.editing = false">
+                <i class="fas fa-times">delete</i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="product-actions">
+            <!-- Edit/Delete buttons (visible when not editing) -->
+            <div *ngIf="!product.editing" class="btn-group">
+              <button class="btn btn-sm btn-outline-primary" (click)="product.editing = true">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(product.id)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modules List -->
+  <div *ngIf="showModuleList" class="modules-section card mt-3">
+    <div class="card-body">
+      <div class="section-header d-flex justify-content-between align-items-center mb-3">
+        <h4 class="card-title">Modules for {{ getProductName(selectedProductId()) }}</h4>
+        <span class="badge bg-primary rounded-pill">{{ modules().length }} modules</span>
+      </div>
+
+      <div *ngIf="modules().length === 0" class="empty-state text-center py-4">
+        <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
+        <p class="text-muted">No modules found for this product</p>
+      </div>
+
+      <div *ngFor="let mod of modules()" class="module-item mb-3 p-3 border rounded">
+        <div class="module-info mb-2">
+          <div class="module-name mb-2">
+            <span *ngIf="!mod.editing" class="fw-bold">{{ mod.name }}</span>
+            <input *ngIf="mod.editing" class="form-control" [(ngModel)]="mod.name" />
+            <small class="text-muted ms-2">({{ mod.id }})</small>
+          </div>
+          <div class="module-versions">
+            <span *ngIf="versionsByModule()[mod.id]?.length; else noVersions" class="d-flex flex-wrap gap-1">
+              <span class="badge bg-secondary rounded-pill" *ngFor="let ver of versionsByModule()[mod.id]">
+                {{ ver }}
+              </span>
+            </span>
+            <ng-template #noVersions>
+              <span class="text-muted">No versions</span>
+            </ng-template>
+          </div>
+        </div>
+        <div class="module-actions d-flex gap-2">
+          <button *ngIf="!mod.editing" class="btn btn-sm btn-outline-primary" (click)="startEditing(mod)">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button *ngIf="mod.editing" class="btn btn-sm btn-success" (click)="saveEditing(mod)">
+            <i class="fas fa-check"></i> Save
+          </button>
+          <button *ngIf="mod.editing" class="btn btn-silver" (click)="mod.editing = false">
+            <i class="fas fa-times"></i> Cancel
+          </button>
+          <button class="btn btn-sm btn-outline-danger" (click)="deleteModule(mod.id)">
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        </div>
+      </div>
+
+      <!-- Close Button -->
+      <div class="text-end mt-3">
+        <button class="btn btn-outline-dark" (click)="showModuleList = false">
+          <i class="fas fa-times"></i> Close Modules
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

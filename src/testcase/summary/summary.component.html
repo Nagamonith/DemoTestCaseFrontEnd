@@ -1,0 +1,44 @@
+<h2 class="text-center"> Test Summary Matrix</h2>
+
+<div class="container-fluid">
+  <table class="matrix-table">
+    <thead>
+      <tr>
+        <th>Module \ Version</th>
+        <th *ngFor="let ver of versions">
+          <div style="color:rgb(203, 219, 233)">Number of scenarios in ({{ ver }})</div>
+          {{ ver }}
+        </th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr *ngFor="let mod of modules">
+        <!-- Clickable link that routes to /modules/:moduleId -->
+        <td>
+          <a
+  class="link-primary fw-bold"
+  [routerLink]="['/tester/modules', mod.id]"
+  [queryParams]="{ loadAllVersions: true }"
+  routerLinkActive="text-decoration-underline"
+>
+  {{ mod.name }}
+</a>
+
+        </td>
+        <td *ngFor="let ver of versions">
+          {{ getCount(mod.id, ver) }}
+        </td>
+      </tr>
+    </tbody>
+
+    <tfoot>
+      <tr class="footer-highlight">
+        <th>Total Scenarios per Version</th>
+        <td *ngFor="let ver of versions">
+          {{ getVersionTotal(ver) }}
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+</div>

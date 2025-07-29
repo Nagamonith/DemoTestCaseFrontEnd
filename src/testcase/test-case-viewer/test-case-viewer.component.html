@@ -1,0 +1,54 @@
+<h2>Viewing Test Case</h2>
+
+<div class="table-container" *ngIf="testCase; else notFound">
+  <table class="resizable-table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>ID</strong></td>
+        <td>{{ testCase.id }}</td>
+      </tr>
+      <tr>
+        <td><strong>Test Case ID</strong></td>
+        <td>{{ testCase.testCaseId }}</td>
+      </tr>
+      <tr>
+        <td><strong>Use Case</strong></td>
+        <td class="wrap-text">{{ testCase.useCase }}</td>
+      </tr>
+      <tr>
+        <td><strong>Steps</strong></td>
+        <td class="wrap-text">{{ testCase.steps }}</td>
+      </tr>
+      <tr>
+        <td><strong>Expected</strong></td>
+        <td class="wrap-text">{{ testCase.expected }}</td>
+      </tr>
+      <tr>
+        <td><strong>Scenario</strong></td>
+        <td class="wrap-text">{{ testCase.scenario }}</td>
+      </tr>
+      <tr>
+        <td><strong>Result</strong></td>
+        <td>{{ testCase.result }}</td>
+      </tr>
+      <tr>
+        <td><strong>Actual</strong></td>
+        <td class="wrap-text">{{ testCase.actual || '—' }}</td>
+      </tr>
+      <tr>
+        <td><strong>Remarks</strong></td>
+        <td class="wrap-text">{{ testCase.remarks || '—' }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<ng-template #notFound>
+  <p style="color: red;">Test case not found!</p>
+</ng-template>

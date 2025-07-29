@@ -1,0 +1,58 @@
+<!-- Module Selection Section -->
+<div class="module-container">
+  <div class="selection-card">
+    <div class="selection-header">
+      <h3 class="selection-title">
+        <i class="icon "></i>
+        Module Selection
+      </h3>
+    </div>
+
+    <div class="selection-body">
+      <div class="form-group">
+        <label class="form-label">Select Module</label>
+        <div class="select-wrapper">
+          <select class="form-select" [ngModel]="selectedModule()" (ngModelChange)="onModuleChange($event)">
+            <option value="">-- Choose Module --</option>
+            <option *ngFor="let m of modules" [value]="m.id">{{ m.name }}</option>
+          </select>
+          <span class="select-arrow">▼</span>
+        </div>
+      </div>
+
+      <button class="btn-export" (click)="exportToExcel()" [disabled]="!selectedModule()">
+        <i class="icon icon-export"></i> Export Module
+      </button>
+    </div>
+  </div>
+
+  <!-- Version Selection Section -->
+  <div class="selection-card" *ngIf="selectedModule()">
+    <div class="selection-header">
+      <h3 class="selection-title">
+        <i class="icon "></i>
+        Version Selection
+      </h3>
+    </div>
+
+    <div class="selection-body">
+      <div class="form-group">
+        <label class="form-label">Select Version</label>
+        <div class="select-wrapper">
+          <select class="form-select" [ngModel]="selectedVersion()" (ngModelChange)="onVersionChange($event)">
+            <option value="">-- Choose Version --</option>
+            <option *ngFor="let v of versions()" [value]="v">{{ v }}</option>
+          </select>
+          <span class="select-arrow">▼</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Test Cases -->
+  <div class="action-card" *ngIf="selectedModule() && selectedVersion()">
+    <button class="btn btn-primary" [routerLink]="['/tester/edit-testcases', selectedModule(), selectedVersion()]">
+      <i class="icon icon-edit"></i> Manage Test Cases
+    </button>
+  </div>
+</div>

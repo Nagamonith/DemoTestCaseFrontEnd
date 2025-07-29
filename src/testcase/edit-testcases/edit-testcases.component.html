@@ -1,0 +1,154 @@
+
+  <h2 class="text-center">Test Case Management</h2>
+
+  <!-- Module and Version display -->
+  <div class="module-info">
+    <div><strong>Module:</strong> {{ getModuleName(selectedModule()) }}</div>
+    <div><strong>Version:</strong> {{ selectedVersion() }}</div>
+    <button class="btn-small-back" (click)="goBack()">🔙 Change Module/Version</button>
+  </div>
+
+  <!-- Filters -->
+  <label>Search Filters</label>
+  <div class="filters">
+    <input
+      type="text"
+      placeholder="Filter by Sl No"
+      [ngModel]="filter().slNo"
+      (ngModelChange)="updateFilter('slNo', $event)"
+    />
+    <input
+      type="text"
+      placeholder="Filter by TestCase ID"
+      [ngModel]="filter().testCaseId"
+      (ngModelChange)="updateFilter('testCaseId', $event)"
+    />
+    <input
+      type="text"
+      placeholder="Filter by Use Case"
+      [ngModel]="filter().useCase"
+      (ngModelChange)="updateFilter('useCase', $event)"
+    />
+  </div>
+
+  <!-- Test case table -->
+  <div *ngIf="filteredTestCases().length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>Sl.No</th>
+          <th>Test Case ID</th>
+          <th>Use Case</th>
+          <th>Scenario</th>
+          <th>Steps</th>
+          <th>Expected</th>
+          <th *ngFor="let attr of getUniqueAttributes()">
+            {{ attr }}
+          </th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let testCase of filteredTestCases(); let i = index">
+          <td>{{ testCase.slNo }}</td>
+          <td>{{ testCase.testCaseId }}</td>
+          <td class="wrap-text">{{ testCase.useCase }}</td>
+          <td class="wrap-text">{{ testCase.scenario }}</td>
+          <td class="wrap-text">{{ testCase.steps }}</td>
+          <td class="wrap-text">{{ testCase.expected }}</td>
+          <td *ngFor="let attr of getUniqueAttributes()" class="wrap-text">
+            {{ getAttributeValue(testCase, attr) }}
+          </td>
+          <td class="actions">
+            <button class="btn-small" (click)="startEditing(testCase)">Edit</button>
+            <button class="btn-small-danger" (click)="deleteTestCase(testCase.id)">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- No results message -->
+  <div *ngIf="filteredTestCases().length === 0" class="no-results">
+    No test cases found. Try changing filters.
+  </div>
+
+  <button class="btn-save" (click)="openForm()">Add New Test Case</button>
+
+  <!-- Add/Edit Test Case Form -->
+  <div *ngIf="isEditing()" class="form-overlay">
+    <form [formGroup]="form" (ngSubmit)="saveTestCase()" class="test-case-form">
+      <h3>{{ form.value.id ? 'Edit' : 'Add' }} Test Case</h3>
+
+      <div class="form-group">
+        <label>Module:</label>
+        <div class="readonly-value">{{ getModuleName(selectedModule()) }}</div>
+      </div>
+
+      <div class="form-group">
+        <label>Version:</label>
+        <div class="readonly-value">{{ selectedVersion() }}</div>
+      </div>
+
+      <div class="form-group">
+        <label>Test Case ID:</label>
+        <input type="text" formControlName="testCaseId" />
+        <div *ngIf="form.get('testCaseId')?.invalid && form.get('testCaseId')?.touched" class="error-message">
+          Test Case ID is required and must start with TC
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Use Case:</label>
+        <input type="text" formControlName="useCase" />
+        <div *ngIf="form.get('useCase')?.invalid && form.get('useCase')?.touched" class="error-message">
+          Use Case is required
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Scenario:</label>
+        <textarea formControlName="scenario" rows="3"></textarea>
+        <div *ngIf="form.get('scenario')?.invalid && form.get('scenario')?.touched" class="error-message">
+          Scenario is required
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Steps:</label>
+        <textarea formControlName="steps" rows="5"></textarea>
+        <div *ngIf="form.get('steps')?.invalid && form.get('steps')?.touched" class="error-message">
+          Steps are required
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Expected Result:</label>
+        <textarea formControlName="expected" rows="3"></textarea>
+        <div *ngIf="form.get('expected')?.invalid && form.get('expected')?.touched" class="error-message">
+          Expected result is required
+        </div>
+      </div>
+
+      <!-- Dynamic Attributes -->
+      <div class="attributes-section">
+        <h4>Attributes</h4>
+        <div formArrayName="attributes">
+          <div *ngFor="let attr of attributes.controls; let i = index" [formGroupName]="i" class="attribute-item">
+            <input formControlName="key" placeholder="Attribute name" />
+            <textarea formControlName="value" placeholder="Value"></textarea>
+            <button type="button" class="btn-small-danger" (click)="removeAttribute(i)">
+              Remove
+            </button>
+          </div>
+        </div>
+        <button type="button" class="btn-small" (click)="addAttribute()">Add Attribute</button>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-save" [disabled]="form.invalid">Save</button>
+        <button type="button" class="btn-small-danger" (click)="cancelEditing()">Cancel</button>
+      </div>
+    </form>
+  </div>
