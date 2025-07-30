@@ -7,27 +7,61 @@
 ></app-alert>
 <h2 class="text-center">Test Management</h2>
 
-<!-- Module dropdown -->
+<!-- Selection Toggle -->
+<div class="selection-toggle">
+  <button class="toggle-btn" 
+          [class.active]="!showTestSuites"
+          (click)="toggleSelectionMode(false)">
+    Modules
+  </button>
+  <button class="toggle-btn" 
+          [class.active]="showTestSuites"
+          (click)="toggleSelectionMode(true)">
+    Test Suites
+  </button>
+</div>
+
+<!-- Module/Test Suite dropdown -->
 <div class="form-group">
-  <label>Select Module</label>
+  <label>{{ showTestSuites ? 'Select Test Suite' : 'Select Module' }}</label>
   <select class="select-dropdown"
           [ngModel]="selectedModule()"
-          (ngModelChange)="onModuleChange($event)"
+          (ngModelChange)="onSelectionChange($event)"
           [ngModelOptions]="{standalone: true}">
-    <option value="">-- Choose Module or Test Suite --</option>
-    <option *ngFor="let m of modules" [value]="m.id">{{ m.name }}</option>
+    <option value="">-- Choose {{ showTestSuites ? 'Test Suite' : 'Module' }} --</option>
+    <option *ngFor="let item of showTestSuites ? testSuites : modules" 
+            [value]="item.id">
+      {{ item.name }}
+    </option>
   </select>
 </div>
 
 <!-- Action buttons -->
+<!-- ✅ CORRECT version: keep this one -->
 <div class="action-buttons" *ngIf="selectedModule()">
-  <button class="btn-view" (click)="showViewTestCases = true; showStartTesting = false">View Test Cases</button>
-  <button class="btn-start" (click)="showStartTesting = true; showViewTestCases = false">Start Testing</button>
+  <button class="btn-view" 
+          (click)="showViewTestCases = true; showStartTesting = false"
+          [disabled]="!versionTestCases().length">
+    {{ showTestSuites ? 'View Suite' : 'View Module' }}
+  </button>
+  <button class="btn-start" 
+          (click)="showStartTesting = true; showViewTestCases = false"
+          [disabled]="!versionTestCases().length">
+    Start Testing
+  </button>
+</div>
+
+
+<!-- Test Suite Info -->
+<div *ngIf="showTestSuites && selectedModule()" class="suite-info">
+  <h4>{{ selectedTestSuite()?.name }}</h4>
+  <p>{{ selectedTestSuite()?.description || 'No description available' }}</p>
+  <small>Contains {{ versionTestCases().length }} test cases</small>
 </div>
 
 <!-- View Test Cases Section -->
 <div *ngIf="showViewTestCases">
-  <div class="form-group" *ngIf="availableVersions.length">
+  <div class="form-group" *ngIf="availableVersions.length && !showTestSuites">
     <label>Select Version</label>
     <select [(ngModel)]="selectedVersion" (ngModelChange)="onVersionChange()" [ngModelOptions]="{ standalone: true }">
       <option value="">-- Choose Version --</option>
@@ -36,10 +70,13 @@
     </select>
   </div>
 
-  <div *ngIf="selectedVersion && versionTestCases().length">
-    <h3>
+  <div *ngIf="(showTestSuites || selectedVersion) && versionTestCases().length">
+    <h3 *ngIf="!showTestSuites">
       Test Cases for 
       {{ selectedVersion === 'all' ? 'All Versions' : ('Version ' + selectedVersion) }}
+    </h3>
+    <h3 *ngIf="showTestSuites">
+      Test Cases in Suite
     </h3>
 
     <!-- Attribute filter -->
@@ -101,10 +138,6 @@
       <option value="Fail">Fail</option>
       <option value="Pending">others</option>
     </select>
-    <!-- <select [(ngModel)]="filter.attributeKey" [ngModelOptions]="{standalone: true}">
-      <option value="">-- Filter by Attribute --</option>
-      <option *ngFor="let attr of availableAttributes" [value]="attr">{{ attr }}</option>
-    </select> -->
     <input *ngIf="filter.attributeKey" type="text" placeholder="Attribute value"
            [(ngModel)]="filter.attributeValue" [ngModelOptions]="{standalone: true}">
   </div>
@@ -147,32 +180,28 @@
                 </button>
               </td>
               
-              <!-- Standard columns -->
               <td *ngFor="let col of testColumns" class="wrap-text" [style.width.px]="col.width">
                 {{ getCellValue(tc, col.field) }}
               </td>
 
-              <!-- Attribute columns -->
               <td *ngFor="let col of attributeColumns" class="wrap-text" [style.width.px]="col.width">
                 {{ getCellValue(tc, col.field) }}
               </td>
 
-   <!-- Actual Result -->
-<td class="wrap-text">
-  <div class="popup-cell" (click)="openPopup(i, 'actual', $event)">
-    <span>{{ getFormControl(i, 'actual').value || 'Click to enter' }}</span>
-    <div *ngIf="isPopupOpen && popupIndex === i && popupField === 'actual'" class="popup-box">
-      <h5> Actual Result</h5>
-      <textarea [formControl]="getFormControl(i, 'actual')" rows="5" cols="40"></textarea>
-      <div class="popup-actions">
-        <button (click)="saveAndClosePopup(i); $event.stopPropagation()">Save</button>
-        <button (click)="closePopup(i); $event.stopPropagation()">Cancel</button>
-      </div>
-    </div>
-  </div>
-</td>
+              <td class="wrap-text">
+                <div class="popup-cell" (click)="openPopup(i, 'actual', $event)">
+                  <span>{{ getFormControl(i, 'actual').value || 'Click to enter' }}</span>
+                  <div *ngIf="isPopupOpen && popupIndex === i && popupField === 'actual'" class="popup-box">
+                    <h5>Actual Result</h5>
+                    <textarea [formControl]="getFormControl(i, 'actual')" rows="5" cols="40"></textarea>
+                    <div class="popup-actions">
+                      <button (click)="saveAndClosePopup(i); $event.stopPropagation()">Save</button>
+                      <button (click)="closePopup(i); $event.stopPropagation()">Cancel</button>
+                    </div>
+                  </div>
+                </div>
+              </td>
 
-              <!-- Result -->
               <td class="wrap-text">
                 <select formControlName="result">
                   <option value="Pass">Pass</option>
@@ -181,21 +210,20 @@
                 </select>
               </td>
 
-<!-- Remarks -->
-<td class="wrap-text">
-  <div class="popup-cell" (click)="openPopup(i, 'remarks', $event)">
-    <span>{{ getFormControl(i, 'remarks').value || 'Click to enter' }}</span>
-    <div *ngIf="isPopupOpen && popupIndex === i && popupField === 'remarks'" class="popup-box">
-      <h5> Remarks</h5>
-      <textarea [formControl]="getFormControl(i, 'remarks')" rows="5" cols="40"></textarea>
-      <div class="popup-actions">
-        <button (click)="saveAndClosePopup(i); $event.stopPropagation()">Save</button>
-        <button (click)="closePopup(i); $event.stopPropagation()">Cancel</button>
-      </div>
-    </div>
-  </div>
-</td>
-              <!-- Uploads -->
+              <td class="wrap-text">
+                <div class="popup-cell" (click)="openPopup(i, 'remarks', $event)">
+                  <span>{{ getFormControl(i, 'remarks').value || 'Click to enter' }}</span>
+                  <div *ngIf="isPopupOpen && popupIndex === i && popupField === 'remarks'" class="popup-box">
+                    <h5>Remarks</h5>
+                    <textarea [formControl]="getFormControl(i, 'remarks')" rows="5" cols="40"></textarea>
+                    <div class="popup-actions">
+                      <button (click)="saveAndClosePopup(i); $event.stopPropagation()">Save</button>
+                      <button (click)="closePopup(i); $event.stopPropagation()">Cancel</button>
+                    </div>
+                  </div>
+                </div>
+              </td>
+
               <td class="uploads-cell">
                 <label class="file-upload-label">
                   <input type="file" (change)="onUpload($event, i)" accept="image/*" multiple>
@@ -224,6 +252,6 @@
       <button class="scroll-button scroll-right" (click)="scrollTable(200)" [class.hidden]="!canScrollRight">&rarr;</button>
     </div>
 
-    <button class="btn-save" (click)="onSave()"> Save Results</button>
+    <button class="btn-save" (click)="onSave()">Save Results</button>
   </div>
 </div>

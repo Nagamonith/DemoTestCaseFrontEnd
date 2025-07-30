@@ -378,3 +378,91 @@ select, input {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+/* Add these styles to your existing CSS */
+/* Add to modules.component.css */
+.selection-options {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.btn-selector {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-selector:hover {
+  background: #f5f5f5;
+}
+
+.btn-selector.active {
+  background: #3f51b5;
+  color: white;
+  border-color: #3f51b5;
+}
+
+/* Update the existing dropdown styling */
+.select-dropdown {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+.selection-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.toggle-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #f5f5f5;
+}
+
+.toggle-btn.active {
+  background: #3f51b5;
+  color: white;
+  border-color: #3f51b5;
+}
+
+.suite-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin: 15px 0;
+  border-left: 4px solid #3f51b5;
+}
+
+.suite-info h4 {
+  margin-top: 0;
+  color: #3f51b5;
+}
+
+.suite-info p {
+  margin-bottom: 5px;
+}
+
+.suite-info small {
+  color: #666;
+  font-style: italic;
+}
+
+.btn-view:disabled, 
+.btn-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Keep all your existing styles and add these at the bottom */
