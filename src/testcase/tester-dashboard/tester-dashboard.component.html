@@ -18,6 +18,9 @@
 
         <ul *ngIf="expandedProductId === product.id" class="submenu">
           <li>
+    <a [routerLink]="['/tester/test-suite']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟ Test Suite</a>
+  </li>
+          <li>
             <a [routerLink]="['/tester/add-testcases']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟  Test Cases</a>
           </li>
           <li>

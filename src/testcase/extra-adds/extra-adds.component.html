@@ -23,7 +23,7 @@
     <button class="btn btn-silver" (click)="handleToggleModules()">
       <i class="fas fa-list"></i> {{ showModuleList ? 'Hide' : 'Show' }} Modules
     </button>
-    <button class="btn btn-silver" (click)="showProducts = !showProducts">
+    <button class="btn btn-silver" class="product-buttons" (click)="showProducts = !showProducts">
       <i class="fas fa-box-open"></i> {{ showProducts ? 'Hide' : 'Show' }} Products
     </button>
     
@@ -163,43 +163,49 @@
   </div>
 
   <!-- Products List -->
-  <div *ngIf="showProducts" class="products-list card mt-3">
-    <div class="card-body">
-      <h4 class="card-title">Product Management</h4>
-      
-      <div *ngFor="let product of products()" class="product-item mb-3 p-3 border rounded">
-        <div class="d-flex justify-content-between align-items-center">
-          <div class="product-info">
-            <!-- Display mode -->
-            <span *ngIf="!product.editing" class="fw-bold">{{ product.name }}</span>
-            
-            <!-- Edit mode -->
-            <div *ngIf="product.editing" class="edit-form d-flex gap-2">
-              <input type="text" [(ngModel)]="product.name" class="form-control">
-              <button class="btn btn-sm btn-success" (click)="saveProductEdit(product)">
-                <i class="fas fa-check"> edit</i>
-              </button>
-              <button class="btn btn-sm btn-secondary" (click)="product.editing = false">
-                <i class="fas fa-times">delete</i>
-              </button>
-            </div>
-          </div>
-          
-          <div class="product-actions">
-            <!-- Edit/Delete buttons (visible when not editing) -->
-            <div *ngIf="!product.editing" class="btn-group">
-              <button class="btn btn-sm btn-outline-primary" (click)="product.editing = true">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(product.id)">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </div>
+<div *ngIf="showProducts" class="products-list card mt-3">
+  <div class="card-body">
+    <h4 class="card-title mb-4">Product Management</h4>
+
+    <div *ngFor="let product of products()" class="product-item mb-3 border-bottom pb-2">
+      <div class="d-flex align-items-center gap-3">
+        
+        <!-- Product name or input -->
+        <div class="flex-grow-1">
+          <span *ngIf="!product.editing" class="fw-bold">{{ product.name }}</span>
+          <input *ngIf="product.editing" type="text" [(ngModel)]="product.name" class="form-control form-control-sm w-auto">
         </div>
+
+        <!-- Buttons -->
+        <div class="d-flex align-items-center gap-2">
+          <!-- Display mode -->
+          <ng-container *ngIf="!product.editing">
+            <button class="btn btn-sm btn-outline-primary" (click)="product.editing = true">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(product.id)">
+              <i class="fas fa-trash"></i>
+            </button>
+          </ng-container>
+
+          <!-- Edit mode -->
+          <ng-container *ngIf="product.editing">
+            <button class="btn btn-sm btn-success" (click)="saveProductEdit(product)">
+              <i class="fas fa-check"></i>
+            </button>
+            <button class="btn btn-sm btn-secondary" (click)="product.editing = false">
+              <i class="fas fa-times"></i>
+            </button>
+          </ng-container>
+        </div>
+
       </div>
     </div>
   </div>
+</div>
+
+
+
 
  <!-- Modules List -->
 <div *ngIf="showModuleList" class="modules-container">

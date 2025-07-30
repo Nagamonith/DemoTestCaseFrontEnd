@@ -233,7 +233,7 @@ handleConfirmDelete(): void {
     this.isConfirmAlert = false;
     this.showAlert = true;
 
-    this.cdr.detectChanges(); // 🔁 force UI update
+    this.cdr.detectChanges(); 
     setTimeout(() => {
       this.showAlert = false;
       this.cdr.detectChanges();
@@ -245,7 +245,7 @@ handleCancelDelete(): void {
   this.showAlert = false;
   this.isConfirmAlert = false;
   this.pendingDeleteId = null;
-  this.cdr.detectChanges(); // 🔁 force UI update
+  this.cdr.detectChanges(); 
 }
 
   goBack(): void {

@@ -14,7 +14,7 @@
           [ngModel]="selectedModule()"
           (ngModelChange)="onModuleChange($event)"
           [ngModelOptions]="{standalone: true}">
-    <option value="">-- Choose Module --</option>
+    <option value="">-- Choose Module or Test Suite --</option>
     <option *ngFor="let m of modules" [value]="m.id">{{ m.name }}</option>
   </select>
 </div>

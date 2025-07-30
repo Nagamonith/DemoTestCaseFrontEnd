@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // ✅ Needed for [(ngModel)]
+import { FormsModule } from '@angular/forms'; 
 
 @Component({
   selector: 'app-product-selection',
   standalone: true,
-  imports: [CommonModule, FormsModule], // ✅ Include FormsModule
+  imports: [CommonModule, FormsModule], 
   templateUrl: './product-selection.component.html',
   styleUrl: './product-selection.component.css'
 })

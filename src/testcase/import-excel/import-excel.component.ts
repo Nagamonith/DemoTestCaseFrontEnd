@@ -109,7 +109,7 @@ onSelectSheet(sheetName: string) {
       this.errorMessage.set('No data to save');
       return;
     }
-    console.log('📦 Final sheet data:', this.sheetData());
+    console.log(' Final sheet data:', this.sheetData());
     alert('Data saved successfully (check console)');
   }
 }

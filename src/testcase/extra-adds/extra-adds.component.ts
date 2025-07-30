@@ -326,7 +326,7 @@ export class ExtraAddsComponent implements OnInit {
     this.alertType = type;
     this.isConfirmAlert = false;
     this.showAlert = true;
-    this.cdr.detectChanges(); // Force immediate update
+    this.cdr.detectChanges(); 
     
     if (type !== 'warning') {
       setTimeout(() => {
