@@ -1,9 +1,9 @@
 /* test-suite.component.css */
-.test-suite-container {
+/* .test-suite-container {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-}
+} */
 
 .list-view, .edit-view {
   background: white;
@@ -24,7 +24,10 @@
   margin: 15px 0;
 }
 
-.suites-list th, .suites-list td,
+.available-test-cases th ,.suites-list th{
+background-color:#2152f3;
+}
+.suites-list td,
 .available-test-cases th, .available-test-cases td,
 .selected-test-cases th, .selected-test-cases td {
   padding: 10px;
@@ -81,8 +84,8 @@
 }
 
 .btn-primary, .btn-save {
-  background-color: #4CAF50;
-  color: white;
+  background-color: #2152f3;
+  color:aliceblue;
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -126,4 +129,7 @@
   padding: 20px;
   color: #666;
   font-style: italic;
+}
+.table-header{
+    background-color:#4568dc;
 }
