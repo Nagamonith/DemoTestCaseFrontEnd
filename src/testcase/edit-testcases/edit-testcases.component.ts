@@ -7,11 +7,11 @@ import { TestCase } from 'src/app/shared/data/dummy-testcases';
 import { AlertComponent } from "src/app/shared/alert/alert.component";
 import { ChangeDetectorRef } from '@angular/core';
 
-
 interface TestCaseFilter {
   slNo: string;
   testCaseId: string;
   useCase: string;
+  version: string;
 }
 
 @Component({
@@ -28,27 +28,27 @@ export class EditTestcasesComponent {
   private testCaseService = inject(TestCaseService);
   private cdr = inject(ChangeDetectorRef);
 
-
   selectedModule = signal<string>('');
-  selectedVersion = signal<string>('');
   isEditing = signal(false);
   testCases = signal<TestCase[]>([]);
   filteredTestCases = signal<TestCase[]>([]);
+  versions = signal<string[]>([]);
   filter = signal<TestCaseFilter>({
     slNo: '',
     testCaseId: '',
-    useCase: ''
+    useCase: '',
+    version: ''
   });
-showAlert = false;
-alertMessage = '';
-alertType: 'success' | 'error' | 'warning' = 'warning';
-isConfirmAlert = false;
-pendingDeleteId: string | null = null;
+  showAlert = false;
+  alertMessage = '';
+  alertType: 'success' | 'error' | 'warning' = 'warning';
+  isConfirmAlert = false;
+  pendingDeleteId: string | null = null;
 
   form = this.fb.group({
     id: [''],
     moduleId: ['', Validators.required],
-    version: ['', Validators.required],
+    version: ['v1.0', Validators.required],
     testCaseId: ['', [Validators.required, Validators.pattern(/^TC\d+/)]],
     useCase: ['', Validators.required],
     scenario: ['', Validators.required],
@@ -63,16 +63,13 @@ pendingDeleteId: string | null = null;
   constructor() {
     this.route.paramMap.subscribe(params => {
       const moduleId = params.get('moduleId');
-      const version = params.get('version');
-
-      if (moduleId && version) {
+      if (moduleId) {
         this.selectedModule.set(moduleId);
-        this.selectedVersion.set(version);
         this.form.patchValue({
-          moduleId: moduleId,
-          version: version
+          moduleId: moduleId
         });
-        this.loadTestCases(moduleId, version);
+        this.loadTestCases(moduleId);
+        this.versions.set(this.testCaseService.getVersionsByModule(moduleId));
       }
     });
   }
@@ -81,9 +78,16 @@ pendingDeleteId: string | null = null;
     return this.form.get('attributes') as FormArray;
   }
 
-  private loadTestCases(moduleId: string, version: string): void {
-    const testCases = this.testCaseService.getTestCasesByModuleAndVersion(moduleId, version);
-    this.testCases.set(testCases);
+  private loadTestCases(moduleId: string): void {
+    const allVersions = this.testCaseService.getVersionsByModule(moduleId);
+    let allTestCases: TestCase[] = [];
+    
+    allVersions.forEach(version => {
+      const versionTestCases = this.testCaseService.getTestCasesByModuleAndVersion(moduleId, version);
+      allTestCases = [...allTestCases, ...versionTestCases];
+    });
+
+    this.testCases.set(allTestCases);
     this.applyFilters();
   }
 
@@ -96,12 +100,13 @@ pendingDeleteId: string | null = null;
   }
 
   private applyFilters(): void {
-    const { slNo, testCaseId, useCase } = this.filter();
+    const { slNo, testCaseId, useCase, version } = this.filter();
     this.filteredTestCases.set(
       this.testCases().filter(tc => 
         (!slNo || tc.slNo.toString().includes(slNo)) &&
         (!testCaseId || tc.testCaseId.toLowerCase().includes(testCaseId.toLowerCase())) &&
-        (!useCase || tc.useCase.toLowerCase().includes(useCase.toLowerCase()))
+        (!useCase || tc.useCase.toLowerCase().includes(useCase.toLowerCase())) &&
+        (!version || tc.version === version)
       )
     );
   }
@@ -141,7 +146,7 @@ pendingDeleteId: string | null = null;
   openForm(): void {
     this.form.reset({
       moduleId: this.selectedModule(),
-      version: this.selectedVersion(),
+      version: 'v1.0',
       result: 'Pending'
     });
     this.attributes.clear();
@@ -187,7 +192,7 @@ pendingDeleteId: string | null = null;
     const testCase: TestCase = {
       id: formValue.id || Date.now().toString(),
       moduleId: this.selectedModule(),
-      version: this.selectedVersion(),
+      version: formValue.version || 'v1.0',
       testCaseId: formValue.testCaseId || '',
       useCase: formValue.useCase || '',
       scenario: formValue.scenario || '',
@@ -209,44 +214,45 @@ pendingDeleteId: string | null = null;
       this.testCaseService.addTestCase(testCase);
     }
 
-    this.loadTestCases(this.selectedModule(), this.selectedVersion());
+    this.loadTestCases(this.selectedModule());
     this.cancelEditing();
   }
 
-deleteTestCase(id: string, event: MouseEvent): void {
-  event.stopPropagation(); // Prevent event bubbling
-  this.alertMessage = 'Are you sure you want to delete this test case?';
-  this.alertType = 'warning';
-  this.isConfirmAlert = true;
-  this.showAlert = true;
-  this.pendingDeleteId = id;
-  this.cdr.detectChanges(); // Force change detection
-}
-handleConfirmDelete(): void {
-  if (this.pendingDeleteId) {
-    this.testCaseService.deleteTestCase(this.pendingDeleteId);
-    this.loadTestCases(this.selectedModule(), this.selectedVersion());
-    this.pendingDeleteId = null;
-
-    this.alertMessage = 'Test case deleted successfully.';
-    this.alertType = 'success';
-    this.isConfirmAlert = false;
+  deleteTestCase(id: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.alertMessage = 'Are you sure you want to delete this test case?';
+    this.alertType = 'warning';
+    this.isConfirmAlert = true;
     this.showAlert = true;
-
-    this.cdr.detectChanges(); 
-    setTimeout(() => {
-      this.showAlert = false;
-      this.cdr.detectChanges();
-    }, 2500);
+    this.pendingDeleteId = id;
+    this.cdr.detectChanges();
   }
-}
 
-handleCancelDelete(): void {
-  this.showAlert = false;
-  this.isConfirmAlert = false;
-  this.pendingDeleteId = null;
-  this.cdr.detectChanges(); 
-}
+  handleConfirmDelete(): void {
+    if (this.pendingDeleteId) {
+      this.testCaseService.deleteTestCase(this.pendingDeleteId);
+      this.loadTestCases(this.selectedModule());
+      this.pendingDeleteId = null;
+
+      this.alertMessage = 'Test case deleted successfully.';
+      this.alertType = 'success';
+      this.isConfirmAlert = false;
+      this.showAlert = true;
+
+      this.cdr.detectChanges(); 
+      setTimeout(() => {
+        this.showAlert = false;
+        this.cdr.detectChanges();
+      }, 2500);
+    }
+  }
+
+  handleCancelDelete(): void {
+    this.showAlert = false;
+    this.isConfirmAlert = false;
+    this.pendingDeleteId = null;
+    this.cdr.detectChanges(); 
+  }
 
   goBack(): void {
     this.router.navigate(['/tester/add-testcases']);

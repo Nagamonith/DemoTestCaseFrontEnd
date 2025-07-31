@@ -20,7 +20,7 @@
   <!-- Module and Version display -->
   <div class="module-info">
     <div><strong>Module:</strong> {{ getModuleName(selectedModule()) }}</div>
-    <div><strong>Version:</strong> {{ selectedVersion() }}</div>
+    
     <button class="btn-small-back" (click)="goBack()">🔙 Change Module/Version</button>
   </div>
 
@@ -102,10 +102,10 @@
         <div class="readonly-value">{{ getModuleName(selectedModule()) }}</div>
       </div>
 
-      <div class="form-group">
+      <!-- <div class="form-group">
         <label>Version:</label>
         <div class="readonly-value">{{ selectedVersion() }}</div>
-      </div>
+      </div> -->
 
       <div class="form-group">
         <label>Test Case ID:</label>

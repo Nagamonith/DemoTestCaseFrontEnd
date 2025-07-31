@@ -26,32 +26,9 @@
     </div>
   </div>
 
-  <!-- Version Selection Section -->
-  <div class="selection-card" *ngIf="selectedModule()">
-    <div class="selection-header">
-      <h3 class="selection-title">
-        <i class="icon "></i>
-        Version Selection
-      </h3>
-    </div>
-
-    <div class="selection-body">
-      <div class="form-group">
-        <label class="form-label">Select Version</label>
-        <div class="select-wrapper">
-          <select class="form-select" [ngModel]="selectedVersion()" (ngModelChange)="onVersionChange($event)">
-            <option value="">-- Choose Version --</option>
-            <option *ngFor="let v of versions()" [value]="v">{{ v }}</option>
-          </select>
-          <span class="select-arrow">▼</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Manage Test Cases -->
-  <div class="action-card" *ngIf="selectedModule() && selectedVersion()">
-    <button class="btn btn-primary" [routerLink]="['/tester/edit-testcases', selectedModule(), selectedVersion()]">
+  <div class="action-card" *ngIf="selectedModule()">
+    <button class="btn btn-primary" [routerLink]="['/tester/edit-testcases', selectedModule()]">
       <i class="icon icon-edit"></i> Manage Test Cases
     </button>
   </div>
