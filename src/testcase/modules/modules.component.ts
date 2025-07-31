@@ -98,6 +98,10 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedTestRunId = signal<string | null>(null);
   viewingSuiteId = signal<string | null>(null);
 
+  // Suite selection
+  selectedSuiteIds: string[] = [];
+  allSuitesSelected = false;
+
   // Computed properties
   selectedTestSuite = computed(() => {
     if (!this.selectedModule() || !this.showTestSuites) return null;
@@ -128,8 +132,6 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   scrollContainer: HTMLElement | null = null;
   canScrollLeft = false;
   canScrollRight = false;
-
-  selectedSuiteIds: string[] = [];
 
   // Alert properties
   alertMessage = '';
@@ -201,42 +203,63 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  toggleSelectionMode(showSuites: boolean, showRuns: boolean): void {
-    this.showTestSuites = showSuites;
-    this.showTestRuns = showRuns;
-    this.selectedModule.set(null);
-    this.selectedTestRunId.set(null);
-    this.viewingSuiteId.set(null);
-    this.selectedVersion = '';
-    this.versionTestCases.set([]);
-    this.showViewTestCases = false;
-    this.showStartTesting = false;
-    this.formArray.clear();
+  // Suite selection methods
+  isSuiteSelected(suiteId: string): boolean {
+    return this.selectedSuiteIds.includes(suiteId);
+  }
+
+  toggleSuiteSelection(suiteId: string): void {
+    if (this.isSuiteSelected(suiteId)) {
+      this.selectedSuiteIds = this.selectedSuiteIds.filter(id => id !== suiteId);
+    } else {
+      this.selectedSuiteIds = [...this.selectedSuiteIds, suiteId];
+    }
+    this.allSuitesSelected = false;
+  }
+
+  toggleSelectAllSuites(event: Event): void {
+    const isChecked = (event.target as HTMLInputElement).checked;
+    this.allSuitesSelected = isChecked;
     
-    if (showRuns) {
-      this.loadTestRuns();
+    if (isChecked) {
+      this.selectedSuiteIds = this.selectedTestRun()?.testSuites.map(s => s.id) || [];
+    } else {
+      this.selectedSuiteIds = [];
     }
   }
 
-  loadTestRuns(): void {
-    this.testRuns.set(this.testRunService.getTestRuns());
+  areAllSuitesSelected(): boolean {
+    if (!this.selectedTestRun()?.testSuites?.length) return false;
+    return this.selectedSuiteIds.length === this.selectedTestRun()!.testSuites.length;
   }
 
-  onTestRunChange(runId: string): void {
-    this.selectedTestRunId.set(runId);
-    this.viewingSuiteId.set(null);
-    if (runId) {
-      this.initializeTestRunView();
-    }
+  hasSelectedSuites(): boolean {
+    return this.selectedSuiteIds.length > 0;
   }
 
-  private initializeTestRunView(): void {
-    if (this.selectedTestRun()?.testSuites?.length) {
-      // Set the first suite as default view
-      this.viewingSuiteId.set(this.selectedTestRun()!.testSuites[0].id);
-      const cases = this.testSuiteService.getTestCasesForSuite(this.viewingSuiteId()!);
-      this.versionTestCases.set(cases);
-    }
+  isSuiteComplete(suiteId: string): boolean {
+    const suiteCases = this.getTestCasesForSuite(suiteId);
+    return suiteCases.length > 0 && suiteCases.every(tc => tc.result === 'Pass');
+  }
+
+  isSuiteInProgress(suiteId: string): boolean {
+    const suiteCases = this.getTestCasesForSuite(suiteId);
+    const completedCases = suiteCases.filter(tc => tc.result && tc.result !== 'Pending');
+    return completedCases.length > 0 && completedCases.length < suiteCases.length;
+  }
+
+  isSuiteNotStarted(suiteId: string): boolean {
+    const suiteCases = this.getTestCasesForSuite(suiteId);
+    return suiteCases.every(tc => !tc.result || tc.result === 'Pending');
+  }
+
+  getSuiteCompletedCount(suiteId: string): number {
+    const suiteCases = this.getTestCasesForSuite(suiteId);
+    return suiteCases.filter(tc => tc.result === 'Pass' || tc.result === 'Fail').length;
+  }
+
+  getTestCasesForSuite(suiteId: string): TestCase[] {
+    return this.testSuiteService.getTestCasesForSuite(suiteId);
   }
 
   getSuiteName(suiteId: string): string {
@@ -254,34 +277,85 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     return suite?.testCases.length || 0;
   }
 
-  getSuiteTestCases(suiteId: string): TestCase[] {
-    return this.testSuiteService.getTestCasesForSuite(suiteId);
-  }
-
-  viewSuiteCases(suiteId: string): void {
-    this.viewingSuiteId.set(suiteId);
-    const cases = this.testSuiteService.getTestCasesForSuite(suiteId);
+  viewAllSelectedCases(): void {
+    let cases: TestCase[] = [];
+    
+    if (this.allSuitesSelected) {
+      // Get all test cases from all suites in the run
+      cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
+        this.getTestCasesForSuite(suite.id)
+      ) || [];
+    } else {
+      // Get cases from selected suites only
+      cases = this.selectedSuiteIds.flatMap(suiteId => 
+        this.getTestCasesForSuite(suiteId)
+      );
+    }
+    
     this.versionTestCases.set(cases);
     this.showViewTestCases = true;
     this.showStartTesting = false;
+    this.initializeFormForTestCases();
   }
 
-  isImage(url: string): boolean {
-    if (!url) return false;
-    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  startTestingSelected(): void {
+    let cases: TestCase[] = [];
+    
+    if (this.allSuitesSelected) {
+      // Get all test cases from all suites in the run
+      cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
+        this.getTestCasesForSuite(suite.id)
+      ) || [];
+    } else {
+      // Get cases from selected suites only
+      cases = this.selectedSuiteIds.flatMap(suiteId => 
+        this.getTestCasesForSuite(suiteId)
+      );
+    }
+    
+    this.versionTestCases.set(cases);
+    this.showStartTesting = true;
+    this.showViewTestCases = false;
+    this.initializeFormForTestCases();
   }
 
-  getFileName(url: string): string {
-    if (!url) return '';
-    const parts = url.split('/');
-    const lastPart = parts[parts.length - 1];
-    const filenamePart = lastPart.split(';')[0];
-    return filenamePart.length > 20 
-      ? filenamePart.substring(0, 17) + '...' 
-      : filenamePart;
+  toggleSelectionMode(showSuites: boolean, showRuns: boolean): void {
+    this.showTestSuites = showSuites;
+    this.showTestRuns = showRuns;
+    this.selectedModule.set(null);
+    this.selectedTestRunId.set(null);
+    this.viewingSuiteId.set(null);
+    this.selectedVersion = '';
+    this.versionTestCases.set([]);
+    this.showViewTestCases = false;
+    this.showStartTesting = false;
+    this.formArray.clear();
+    this.selectedSuiteIds = [];
+    this.allSuitesSelected = false;
+    
+    if (showRuns) {
+      this.loadTestRuns();
+    }
   }
-// test run 
 
+  loadTestRuns(): void {
+    this.testRuns.set(this.testRunService.getTestRuns());
+  }
+
+  onTestRunChange(runId: string): void {
+    this.selectedTestRunId.set(runId);
+    this.viewingSuiteId.set(null);
+    this.selectedSuiteIds = [];
+    this.allSuitesSelected = false;
+    
+    if (runId) {
+      this.updateTestRunProgress();
+    } else {
+      this.versionTestCases.set([]);
+      this.showViewTestCases = false;
+      this.showStartTesting = false;
+    }
+  }
 
   onSelectionChange(id: string): void {
     if (!id) return;
@@ -332,20 +406,10 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private initializeFormForTestCases(): void {
-    let testCases: TestCase[] = [];
-    
-    if (this.showTestRuns && this.viewingSuiteId()) {
-      testCases = this.testSuiteService.getTestCasesForSuite(this.viewingSuiteId()!);
-    } else if (this.showTestSuites) {
-      testCases = this.versionTestCases();
-    } else {
-      testCases = this.filteredTestCases();
-    }
-
     this.formArray.clear();
     this.uploads = [];
 
-    testCases.forEach(testCase => {
+    this.versionTestCases().forEach(testCase => {
       this.formArray.push(
         this.fb.group({
           result: [testCase.result || 'Pending'],
@@ -387,30 +451,21 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
 
   handleViewAction(): void {
     if (this.showTestRuns && this.selectedTestRun()?.testSuites?.length && !this.viewingSuiteId()) {
-      this.viewingSuiteId.set(this.selectedTestRun()!.testSuites[0].id);
-      const cases = this.testSuiteService.getTestCasesForSuite(this.viewingSuiteId()!);
-      this.versionTestCases.set(cases);
+      this.viewAllSelectedCases();
+    } else {
+      this.showViewTestCases = true;
+      this.showStartTesting = false;
     }
-    this.showViewTestCases = true;
-    this.showStartTesting = false;
   }
 
   handleStartTesting(): void {
     if (this.showTestRuns) {
-      if (this.viewingSuiteId()) {
-        const cases = this.testSuiteService.getTestCasesForSuite(this.viewingSuiteId()!);
-        this.versionTestCases.set(cases);
-      } else if (this.selectedTestRun()?.testSuites?.length) {
-        const allCases: TestCase[] = [];
-        this.selectedTestRun()!.testSuites.forEach(suite => {
-          allCases.push(...this.testSuiteService.getTestCasesForSuite(suite.id));
-        });
-        this.versionTestCases.set(allCases);
-      }
+      this.startTestingSelected();
+    } else {
+      this.showStartTesting = true;
+      this.showViewTestCases = false;
+      this.initializeFormForTestCases();
     }
-    this.showStartTesting = true;
-    this.showViewTestCases = false;
-    this.initializeFormForTestCases();
   }
 
   hasTestCasesToView(): boolean {
@@ -455,42 +510,33 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cdRef.detectChanges();
   }
 
-private updateTestRunProgress(): void {
-  const selectedRun = this.selectedTestRun();
-  if (!selectedRun) return;
+  private updateTestRunProgress(): void {
+    const selectedRun = this.selectedTestRun();
+    if (!selectedRun) return;
 
-  // Step 1: Get all suite IDs in the selected run
-  const suiteIds = selectedRun.testSuites.map(suite => suite.id);
+    const suiteIds = selectedRun.testSuites.map(suite => suite.id);
+    const runCases: TestCase[] = [];
+    suiteIds.forEach(suiteId => {
+      const cases = this.testSuiteService.getTestCasesForSuite(suiteId);
+      runCases.push(...cases);
+    });
 
-  // Step 2: Get all test cases associated with those suites
-  const runCases: TestCase[] = [];
-  suiteIds.forEach(suiteId => {
-    const cases = this.testSuiteService.getTestCasesForSuite(suiteId);
-    runCases.push(...cases);
-  });
+    const total = runCases.length;
+    const completed = runCases.filter(tc =>
+      tc.result === 'Pass' || tc.result === 'Fail'
+    ).length;
 
-  // Step 3: Count total and completed test cases
-  const total = runCases.length;
-  const completed = runCases.filter(tc =>
-    tc.result === 'Pass' || tc.result === 'Fail'
-  ).length;
+    this.testRunProgress.set({ total, completed });
 
-  // Step 4: Update progress signal
-  this.testRunProgress.set({ total, completed });
+    let status: TestRun['status'] = 'Not Started';
+    if (total > 0 && completed === total) {
+      status = 'Completed';
+    } else if (completed > 0) {
+      status = 'In Progress';
+    }
 
-  // Step 5: Determine new status
-  let status: TestRun['status'] = 'Not Started';
-  if (total > 0 && completed === total) {
-    status = 'Completed';
-  } else if (completed > 0) {
-    status = 'In Progress';
+    this.testRunService.updateTestRun(this.selectedTestRunId()!, { status });
   }
-
-  // Step 6: Update test run status (updatedAt is handled internally)
-  this.testRunService.updateTestRun(this.selectedTestRunId()!, { status });
-}
-
-
 
   extractAvailableAttributes(): void {
     const allAttributes = new Set<string>();
@@ -736,5 +782,26 @@ private updateTestRunProgress(): void {
 
   getTotalCaseCount(): number {
     return this.testRunProgress().total;
+  }
+    isImage(url: string): boolean {
+    if (!url) return false;
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  }
+
+getFileName(url: string): string {
+    if (!url) return '';
+    const parts = url.split('/');
+    const lastPart = parts[parts.length - 1];
+    const filenamePart = lastPart.split(';')[0];
+    return filenamePart.length > 20 
+      ? filenamePart.substring(0, 17) + '...' 
+      : filenamePart;
+  }
+
+  backToSuiteList(): void {
+    this.showStartTesting = false;
+    this.showViewTestCases = false;
+    this.formArray.clear();
+    this.uploads = [];
   }
 }

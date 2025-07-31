@@ -5,7 +5,7 @@
   [show]="showAlert"
   (onCancel)="onAlertClose()"
 ></app-alert>
-<h2 class="text-center">Test Management</h2>
+<h2 class="text-center">Test Management</h2>  
 
 <!-- Selection Toggle -->
 <div class="selection-toggle">
@@ -62,27 +62,18 @@
   </select>
 </div>
 
-<!-- Action buttons -->
-<!-- Action buttons - Updated version -->
-<div class="action-buttons" *ngIf="showTestRuns ? selectedTestRunId() : selectedModule()">
+<!-- Action buttons for Modules and Test Suites -->
+<div class="action-buttons" *ngIf="(!showTestRuns && selectedModule()) || (showTestSuites && !showTestRuns && selectedModule())">
   <button class="btn-view" 
           (click)="handleViewAction()"
           [disabled]="!hasTestCasesToView()">
-    {{ showTestRuns ? 'View Run' : (showTestSuites ? 'View Suite' : 'View Module') }}
+    {{ showTestSuites ? 'View Suite' : 'View Module' }}
   </button>
   <button class="btn-start" 
           (click)="handleStartTesting()"
           [disabled]="!hasTestCasesToView()">
     Start Testing
   </button>
-</div>
-
-<!-- Test Run Info -->
-<div *ngIf="showTestRuns && selectedTestRunId()" class="run-info">
-  <h4>{{ selectedTestRun()?.name }}</h4>
-  <p>{{ selectedTestRun()?.description || 'No description available' }}</p>
-  <small>Created by {{ selectedTestRun()?.createdBy }} on {{ selectedTestRun()?.createdAt | date:'mediumDate' }}</small>
-  <small>Last updated: {{ selectedTestRun()?.updatedAt | date:'mediumDate' }}</small>
 </div>
 
 <!-- Test Suite Info -->
@@ -92,16 +83,62 @@
   <small>Contains {{ versionTestCases().length }} test cases</small>
 </div>
 
-<!-- Test Run Suites List -->
+<!-- Test Run Suites List with Checkboxes -->
+<!-- Test Run Suites List with Checkboxes -->
 <div *ngIf="showTestRuns && selectedTestRunId() && selectedTestRun()?.testSuites?.length" class="run-suites">
-  <h4>Test Suites in this Run</h4>
+  <h4>Select Test Suites to Execute</h4>
+  
+  <!-- Add the "All" checkbox at the top -->
+  <div class="select-all-section">
+    <label>
+      <input type="checkbox" 
+             [checked]="areAllSuitesSelected()"
+             (change)="toggleSelectAllSuites($event)">
+      Select All Suites
+    </label>
+  </div>
+
   <div class="suite-cards">
-    <div *ngFor="let suiteRef of selectedTestRun()?.testSuites" class="suite-card">
-      <h5>{{ suiteRef.name }}</h5>
+    <div *ngFor="let suiteRef of selectedTestRun()?.testSuites" class="suite-card" [class.selected]="isSuiteSelected(suiteRef.id)">
+      <div class="suite-header">
+        <input type="checkbox" 
+               [id]="'suite-' + suiteRef.id"
+               [checked]="isSuiteSelected(suiteRef.id)"
+               (change)="toggleSuiteSelection(suiteRef.id)">
+        <label [for]="'suite-' + suiteRef.id">
+          <h5>{{ suiteRef.name }}</h5>
+        </label>
+        <!-- Status indicators -->
+        <span *ngIf="isSuiteComplete(suiteRef.id)" class="status-badge complete" title="All test cases passed">
+          ✓
+        </span>
+        <span *ngIf="isSuiteInProgress(suiteRef.id)" class="status-badge in-progress" title="Test cases in progress">
+          ⌛
+        </span>
+        <span *ngIf="isSuiteNotStarted(suiteRef.id)" class="status-badge not-started" title="Not started">
+          ○
+        </span>
+      </div>
       <p>{{ getSuiteDescription(suiteRef.id) || 'No description available' }}</p>
       <small>Contains {{ getSuiteTestCaseCount(suiteRef.id) }} test cases</small>
-      <button class="btn-view" (click)="viewSuiteCases(suiteRef.id)">View Cases</button>
+      <small *ngIf="getSuiteCompletedCount(suiteRef.id) > 0">
+        {{ getSuiteCompletedCount(suiteRef.id) }}/{{ getSuiteTestCaseCount(suiteRef.id) }} completed
+      </small>
     </div>
+  </div>
+
+  <!-- Action buttons for selected suites or "All" -->
+  <div *ngIf="hasSelectedSuites() || areAllSuitesSelected()" class="run-actions">
+    <button class="btn-view" 
+            (click)="viewAllSelectedCases()"
+            [disabled]="!hasSelectedSuites() && !areAllSuitesSelected()">
+      View Cases
+    </button>
+    <button class="btn-start" 
+            (click)="startTestingSelected()"
+            [disabled]="!hasSelectedSuites() && !areAllSuitesSelected()">
+      Start Testing
+    </button>
   </div>
 </div>
 
@@ -306,7 +343,7 @@
 
     <div class="save-section">
       <button class="btn-save" (click)="onSave()">Save Results</button>
-      
+      <button class="btn-back" *ngIf="showTestRuns" (click)="backToSuiteList()">Back to Suite List</button>
     </div>
   </div>
 </div>
