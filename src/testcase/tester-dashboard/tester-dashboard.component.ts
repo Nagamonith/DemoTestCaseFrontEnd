@@ -19,6 +19,7 @@ export class TesterDashboardComponent implements OnInit {
   generalExpanded: boolean = false;
   sidebarOpen = true;
   currentProductName: string | null = null;
+  expandedTestRunManagementProductId: string | null = null;
 
   constructor(
     private router: Router,
@@ -62,4 +63,8 @@ export class TesterDashboardComponent implements OnInit {
   onAutomationClick() {
     alert('Automation Results feature coming soon!');
   }
+toggleTestRunManagement(productId: string): void {
+  this.expandedTestRunManagementProductId =
+    this.expandedTestRunManagementProductId === productId ? null : productId;
+}
 }

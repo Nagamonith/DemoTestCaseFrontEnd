@@ -465,4 +465,50 @@ select, input {
   cursor: not-allowed;
 }
 
-/* Keep all your existing styles and add these at the bottom */
+/* Keep all your existing styles and add these at the bottom *//* Test Run Styles */
+.run-info {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.suite-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.suite-card {
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.suite-card h5 {
+  margin-top: 0;
+  color: #4873ff;
+}
+
+.suite-card button {
+  margin-top: 10px;
+}
+
+.suite-cases {
+  margin-top: 20px;
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  color: #4873ff;
+  cursor: pointer;
+  margin-bottom: 15px;
+  padding: 5px 0;
+}
+
+.btn-back:hover {
+  text-decoration: underline;
+}

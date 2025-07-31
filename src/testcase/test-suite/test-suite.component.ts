@@ -148,13 +148,24 @@ handleCheckboxChange(testCase: TestCase, event: Event): void {
         }
       );
 
-      if (updated) {
-        const existingSuite = this.testSuiteService.getTestSuiteById(this.selectedSuiteId());
-        if (existingSuite) {
-          existingSuite.testCases.forEach(tc => {
-            this.testSuiteService.removeTestCaseFromSuite(this.selectedSuiteId(), tc.testCaseId);
-          });
+ if (updated) {
+  const suiteId = this.selectedSuiteId();
+  
+  if (suiteId !== undefined) {
+    const existingSuite = this.testSuiteService.getTestSuiteById(suiteId);
+    
+    if (existingSuite) {
+      existingSuite.testCases.forEach(tc => {
+        if (tc.testCaseId) {  // also ensure testCaseId is defined if needed
+          this.testSuiteService.removeTestCaseFromSuite(suiteId, tc.testCaseId);
         }
+      });
+    }
+  }
+
+
+
+
 
         this.selectedTestCases().forEach(testCase => {
           this.testSuiteService.addTestCaseToSuite(this.selectedSuiteId(), {

@@ -10,58 +10,105 @@
 <!-- Selection Toggle -->
 <div class="selection-toggle">
   <button class="toggle-btn" 
-          [class.active]="!showTestSuites"
-          (click)="toggleSelectionMode(false)">
+          [class.active]="!showTestSuites && !showTestRuns"
+          (click)="toggleSelectionMode(false, false)">
     Modules
   </button>
   <button class="toggle-btn" 
-          [class.active]="showTestSuites"
-          (click)="toggleSelectionMode(true)">
+          [class.active]="showTestSuites && !showTestRuns"
+          (click)="toggleSelectionMode(true, false)">
     Test Suites
+  </button>
+  <button class="toggle-btn" 
+          [class.active]="showTestRuns"
+          (click)="toggleSelectionMode(false, true)">
+    Test Runs
   </button>
 </div>
 
-<!-- Module/Test Suite dropdown -->
+<!-- Dynamic Selection Dropdown -->
 <div class="form-group">
-  <label>{{ showTestSuites ? 'Select Test Suite' : 'Select Module' }}</label>
+  <label>
+    {{ showTestRuns ? 'Select Test Run' : 
+       (showTestSuites ? 'Select Test Suite' : 'Select Module') }}
+  </label>
   <select class="select-dropdown"
-          [ngModel]="selectedModule()"
-          (ngModelChange)="onSelectionChange($event)"
+          [ngModel]="showTestRuns ? selectedTestRunId() : selectedModule()"
+          (ngModelChange)="showTestRuns ? onTestRunChange($event) : onSelectionChange($event)"
           [ngModelOptions]="{standalone: true}">
-    <option value="">-- Choose {{ showTestSuites ? 'Test Suite' : 'Module' }} --</option>
-    <option *ngFor="let item of showTestSuites ? testSuites : modules" 
-            [value]="item.id">
-      {{ item.name }}
-    </option>
+    <option value="">-- Choose {{ showTestRuns ? 'Test Run' : 
+                            (showTestSuites ? 'Test Suite' : 'Module') }} --</option>
+    
+    <!-- Test Runs -->
+    <ng-container *ngIf="showTestRuns">
+      <option *ngFor="let run of testRuns()" [value]="run.id">
+        {{ run.name }}
+      </option>
+    </ng-container>
+    
+    <!-- Test Suites -->
+    <ng-container *ngIf="showTestSuites && !showTestRuns">
+      <option *ngFor="let suite of testSuites" [value]="suite.id">
+        {{ suite.name }}
+      </option>
+    </ng-container>
+    
+    <!-- Modules -->
+    <ng-container *ngIf="!showTestSuites && !showTestRuns">
+      <option *ngFor="let module of modules" [value]="module.id">
+        {{ module.name }}
+      </option>
+    </ng-container>
   </select>
 </div>
 
 <!-- Action buttons -->
-<!-- ✅ CORRECT version: keep this one -->
-<div class="action-buttons" *ngIf="selectedModule()">
+<!-- Action buttons - Updated version -->
+<div class="action-buttons" *ngIf="showTestRuns ? selectedTestRunId() : selectedModule()">
   <button class="btn-view" 
-          (click)="showViewTestCases = true; showStartTesting = false"
-          [disabled]="!versionTestCases().length">
-    {{ showTestSuites ? 'View Suite' : 'View Module' }}
+          (click)="handleViewAction()"
+          [disabled]="!hasTestCasesToView()">
+    {{ showTestRuns ? 'View Run' : (showTestSuites ? 'View Suite' : 'View Module') }}
   </button>
   <button class="btn-start" 
-          (click)="showStartTesting = true; showViewTestCases = false"
-          [disabled]="!versionTestCases().length">
+          (click)="handleStartTesting()"
+          [disabled]="!hasTestCasesToView()">
     Start Testing
   </button>
 </div>
 
+<!-- Test Run Info -->
+<div *ngIf="showTestRuns && selectedTestRunId()" class="run-info">
+  <h4>{{ selectedTestRun()?.name }}</h4>
+  <p>{{ selectedTestRun()?.description || 'No description available' }}</p>
+  <small>Created by {{ selectedTestRun()?.createdBy }} on {{ selectedTestRun()?.createdAt | date:'mediumDate' }}</small>
+  <small>Last updated: {{ selectedTestRun()?.updatedAt | date:'mediumDate' }}</small>
+</div>
 
 <!-- Test Suite Info -->
-<div *ngIf="showTestSuites && selectedModule()" class="suite-info">
+<div *ngIf="showTestSuites && !showTestRuns && selectedModule()" class="suite-info">
   <h4>{{ selectedTestSuite()?.name }}</h4>
   <p>{{ selectedTestSuite()?.description || 'No description available' }}</p>
   <small>Contains {{ versionTestCases().length }} test cases</small>
 </div>
 
+<!-- Test Run Suites List -->
+<div *ngIf="showTestRuns && selectedTestRunId() && selectedTestRun()?.testSuites?.length" class="run-suites">
+  <h4>Test Suites in this Run</h4>
+  <div class="suite-cards">
+    <div *ngFor="let suiteRef of selectedTestRun()?.testSuites" class="suite-card">
+      <h5>{{ suiteRef.name }}</h5>
+      <p>{{ getSuiteDescription(suiteRef.id) || 'No description available' }}</p>
+      <small>Contains {{ getSuiteTestCaseCount(suiteRef.id) }} test cases</small>
+      <button class="btn-view" (click)="viewSuiteCases(suiteRef.id)">View Cases</button>
+    </div>
+  </div>
+</div>
+
 <!-- View Test Cases Section -->
 <div *ngIf="showViewTestCases">
-  <div class="form-group" *ngIf="availableVersions.length && !showTestSuites">
+  <!-- Version selector for modules -->
+  <div class="form-group" *ngIf="availableVersions.length && !showTestSuites && !showTestRuns">
     <label>Select Version</label>
     <select [(ngModel)]="selectedVersion" (ngModelChange)="onVersionChange()" [ngModelOptions]="{ standalone: true }">
       <option value="">-- Choose Version --</option>
@@ -70,13 +117,15 @@
     </select>
   </div>
 
-  <div *ngIf="(showTestSuites || selectedVersion) && versionTestCases().length">
-    <h3 *ngIf="!showTestSuites">
-      Test Cases for 
-      {{ selectedVersion === 'all' ? 'All Versions' : ('Version ' + selectedVersion) }}
+  <div *ngIf="(showTestSuites || selectedVersion || showTestRuns) && versionTestCases().length">
+    <h3 *ngIf="showTestRuns && viewingSuiteId()">
+      Test Cases in {{ getSuiteName(viewingSuiteId()!) }}
     </h3>
-    <h3 *ngIf="showTestSuites">
+    <h3 *ngIf="showTestSuites && !showTestRuns">
       Test Cases in Suite
+    </h3>
+    <h3 *ngIf="!showTestSuites && !showTestRuns">
+      Test Cases for {{ selectedVersion === 'all' ? 'All Versions' : ('Version ' + selectedVersion) }}
     </h3>
 
     <!-- Attribute filter -->
@@ -136,7 +185,7 @@
       <option value="">All Results</option>
       <option value="Pass">Pass</option>
       <option value="Fail">Fail</option>
-      <option value="Pending">others</option>
+      <option value="Pending">Pending</option>
     </select>
     <input *ngIf="filter.attributeKey" type="text" placeholder="Attribute value"
            [(ngModel)]="filter.attributeValue" [ngModelOptions]="{standalone: true}">
@@ -206,7 +255,7 @@
                 <select formControlName="result">
                   <option value="Pass">Pass</option>
                   <option value="Fail">Fail</option>
-                  <option value="Pending"></option>
+                  <option value="Pending">Pending</option>
                 </select>
               </td>
 
@@ -226,7 +275,7 @@
 
               <td class="uploads-cell">
                 <label class="file-upload-label">
-                  <input type="file" (change)="onUpload($event, i)" accept="image/*" multiple>
+                  <input type="file" (change)="onUpload($event, i)" accept="image/*, .pdf, .txt" multiple>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
@@ -235,9 +284,12 @@
                 <div class="upload-previews">
                   <div *ngFor="let file of uploads[i]; let j = index" class="upload-preview">
                     <div class="preview-container">
-                      <img [src]="file.url" 
+                      <img *ngIf="isImage(file.url)" [src]="file.url" 
                            (load)="onImageLoad($event, i, j)"
                            class="preview-image">
+                      <div *ngIf="!isImage(file.url)" class="file-preview">
+                        <span>{{ getFileName(file.url) }}</span>
+                      </div>
                       <div class="loading-spinner" *ngIf="!file.loaded"></div>
                     </div>
                     <button class="remove-btn" (click)="removeUpload(i, j)">×</button>
@@ -252,6 +304,9 @@
       <button class="scroll-button scroll-right" (click)="scrollTable(200)" [class.hidden]="!canScrollRight">&rarr;</button>
     </div>
 
-    <button class="btn-save" (click)="onSave()">Save Results</button>
+    <div class="save-section">
+      <button class="btn-save" (click)="onSave()">Save Results</button>
+      
+    </div>
   </div>
 </div>
