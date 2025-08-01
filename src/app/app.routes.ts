@@ -65,13 +65,15 @@ export const routes: Routes = [
         component: TesterDashboardComponent,
         children: [
           { path: 'add-testcases', component: AddTestcasesComponent },
-          {
-            path: 'edit-testcases/:moduleId/:version',
-            loadComponent: () =>
-              import('../testcase/edit-testcases/edit-testcases.component').then(
-                m => m.EditTestcasesComponent
-              )
-          },
+         {
+  path: 'edit-testcases/:moduleId',
+  loadComponent: () =>
+    import('../testcase/edit-testcases/edit-testcases.component').then(
+      m => m.EditTestcasesComponent
+    ),
+  // This ensures query parameters are preserved when navigating
+  runGuardsAndResolvers: 'always'
+},
           { path: 'import-excel', component: ImportExcelComponent },
 
           // ✅ Existing module view (no param)
@@ -112,6 +114,14 @@ export const routes: Routes = [
     import('../testcase/automation-result/automation-result.component')
       .then(m => m.AutomationResultComponent)
 },
+{ path: 'test-suite', loadComponent: () => import('../testcase/test-suite/test-suite.component').then(m => m.TestSuiteComponent) },
+{
+  path: 'test-runs',
+  loadComponent: () =>
+    import('../testcase/test-run/test-run.component').then(m => m.TestRunComponent)
+},
+
+
 
         ]
       }

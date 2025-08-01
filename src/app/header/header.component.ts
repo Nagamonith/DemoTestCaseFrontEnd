@@ -3,7 +3,7 @@ import { Component, HostListener, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { TranslateModule } from '@ngx-translate/core';
-import { PageTitleService } from 'src/app/shared/services/page-title.service'; // 👈 adjust path if needed
+import { PageTitleService } from 'src/app/shared/services/page-title.service'; 
 
 @Component({
   selector: 'app-header',
@@ -21,11 +21,11 @@ export class HeaderComponent implements OnInit {
   selectedItem: string | null = null;
   dataSubscription!: Subscription;
 
-  currentPageTitle: string = ''; // 👈 holds the dynamic title
+  currentPageTitle: string = ''; 
 
   constructor(
     private router: Router,
-    private pageTitleService: PageTitleService // 👈 inject the shared service
+    private pageTitleService: PageTitleService 
   ) {}
 
   ngOnInit(): void {

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { delay, tap } from 'rxjs/operators';
+import { DUMMY_PRODUCTS } from 'src/app/shared/data/dummy-products';
 
 export interface Product {
   id: string;
@@ -12,18 +13,10 @@ export interface Product {
 
 @Injectable({ providedIn: 'root' })
 export class ProductService {
-  private products = new BehaviorSubject<Product[]>([
-    { id: '1', name: 'Qualis SPC', createdAt: new Date() },
-    { id: '2', name: 'MSA', createdAt: new Date() },
-    { id: '3', name: 'FMEA', createdAt: new Date() },
-    { id: '4', name: 'Wizard', createdAt: new Date() },
-    { id: '5', name: 'APQP', createdAt: new Date() }
-  ]);
+  private products = new BehaviorSubject<Product[]>([...DUMMY_PRODUCTS]);
 
   getProducts(): Observable<Product[]> {
-    return this.products.asObservable().pipe(
-      delay(200)
-    );
+    return this.products.asObservable().pipe(delay(200));
   }
 
   addProduct(name: string): Observable<Product> {
@@ -53,7 +46,7 @@ export class ProductService {
     return of(product).pipe(
       delay(200),
       tap(() => {
-        const updated = this.products.value.map(p => 
+        const updated = this.products.value.map(p =>
           p.id === product.id ? { ...product, name: product.name.trim() } : p
         );
         this.products.next(updated);

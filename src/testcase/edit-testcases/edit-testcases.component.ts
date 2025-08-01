@@ -6,6 +6,7 @@ import { TestCaseService } from 'src/app/shared/services/test-case.service';
 import { TestCase } from 'src/app/shared/data/dummy-testcases';
 import { AlertComponent } from "src/app/shared/alert/alert.component";
 import { ChangeDetectorRef } from '@angular/core';
+import { ProductModule } from 'src/app/shared/modles/module.model';
 
 interface TestCaseFilter {
   slNo: string;
@@ -29,6 +30,8 @@ export class EditTestcasesComponent {
   private cdr = inject(ChangeDetectorRef);
 
   selectedModule = signal<string>('');
+  productId = signal<string>('');
+  modules = signal<ProductModule[]>([]);
   isEditing = signal(false);
   testCases = signal<TestCase[]>([]);
   filteredTestCases = signal<TestCase[]>([]);
@@ -72,24 +75,73 @@ export class EditTestcasesComponent {
         this.versions.set(this.testCaseService.getVersionsByModule(moduleId));
       }
     });
-  }
 
+    this.route.queryParamMap.subscribe(params => {
+      const productId = params.get('productId');
+      if (productId) {
+        this.productId.set(productId);
+        this.modules.set(this.testCaseService.getModulesByProduct(productId));
+      } else {
+        this.modules.set(this.testCaseService.getModules());
+      }
+    });
+  }
+ngOnInit() {
+  console.log('All modules:', this.testCaseService.getModules());
+  console.log('All test cases:', this.testCaseService.getTestCases());
+  
+  this.route.paramMap.subscribe(params => {
+    const moduleId = params.get('moduleId');
+    console.log('Received moduleId:', moduleId);
+    if (moduleId) {
+      this.loadTestCases(moduleId);
+    }
+  });
+}
   get attributes(): FormArray {
     return this.form.get('attributes') as FormArray;
   }
 
-  private loadTestCases(moduleId: string): void {
-    const allVersions = this.testCaseService.getVersionsByModule(moduleId);
-    let allTestCases: TestCase[] = [];
-    
-    allVersions.forEach(version => {
-      const versionTestCases = this.testCaseService.getTestCasesByModuleAndVersion(moduleId, version);
-      allTestCases = [...allTestCases, ...versionTestCases];
-    });
-
-    this.testCases.set(allTestCases);
-    this.applyFilters();
+public loadTestCases(moduleId: string): void {
+  console.log('Loading test cases for module:', moduleId);
+  
+  // console.log('Found test cases:', allTestCases);
+  // this.testCases.set(allTestCases);
+  // // ... rest of the method
+  
+  // First verify the module exists
+  const module = this.testCaseService.getModules().find(m => m.id === moduleId);
+  if (!module) {
+    console.error(`Module ${moduleId} not found`);
+    this.testCases.set([]);
+    return;
   }
+
+  console.log('Module found:', module);
+
+  // Get all test cases for this module (regardless of version)
+  const allTestCases = this.testCaseService.getTestCasesByModule(moduleId);
+  console.log('All test cases for module:', allTestCases);
+   console.log('Found test cases:', allTestCases);
+  this.testCases.set(allTestCases);
+
+  if (allTestCases.length === 0) {
+    console.warn(`No test cases found for module ${moduleId}. Check if:
+    - Test cases exist for this module
+    - Test cases have proper moduleId (currently '${moduleId}')
+    - Test cases are properly loaded in the service`);
+  }
+
+  // Get unique versions from these test cases
+  const versions = [...new Set(allTestCases.map(tc => tc.version))].sort();
+  console.log('Versions found in test cases:', versions);
+
+  this.versions.set(versions);
+  this.testCases.set(allTestCases);
+  this.applyFilters();
+
+  console.log(`Successfully loaded ${allTestCases.length} test cases for module ${moduleId}`);
+}
 
   updateFilter<K extends keyof TestCaseFilter>(key: K, value: string): void {
     this.filter.update(current => ({
@@ -101,24 +153,26 @@ export class EditTestcasesComponent {
 
   private applyFilters(): void {
     const { slNo, testCaseId, useCase, version } = this.filter();
-    this.filteredTestCases.set(
-      this.testCases().filter(tc => 
-        (!slNo || tc.slNo.toString().includes(slNo)) &&
-        (!testCaseId || tc.testCaseId.toLowerCase().includes(testCaseId.toLowerCase())) &&
-        (!useCase || tc.useCase.toLowerCase().includes(useCase.toLowerCase())) &&
-        (!version || tc.version === version)
-      )
+    const filtered = this.testCases().filter(tc => 
+      (!slNo || tc.slNo.toString().includes(slNo)) &&
+      (!testCaseId || tc.testCaseId.toLowerCase().includes(testCaseId.toLowerCase())) &&
+      (!useCase || tc.useCase.toLowerCase().includes(useCase.toLowerCase())) &&
+      (!version || tc.version === version)
     );
+    
+    console.log(`Filtered to ${filtered.length} test cases`);
+    this.filteredTestCases.set(filtered);
   }
 
   getModuleName(moduleId: string): string {
-    return this.testCaseService.getModules().find(m => m.id === moduleId)?.name || '';
+    const module = this.modules().find(m => m.id === moduleId);
+    return module?.name || 'Unknown Module';
   }
 
   getUniqueAttributes(): string[] {
     const allAttributes = new Set<string>();
     this.testCases().forEach(tc => {
-      tc.attributes.forEach(attr => {
+      tc.attributes?.forEach(attr => {
         allAttributes.add(attr.key);
       });
     });
@@ -126,7 +180,7 @@ export class EditTestcasesComponent {
   }
 
   getAttributeValue(testCase: TestCase, key: string): string {
-    const attr = testCase.attributes.find(a => a.key === key);
+    const attr = testCase.attributes?.find(a => a.key === key);
     return attr ? attr.value : '';
   }
 
@@ -169,7 +223,7 @@ export class EditTestcasesComponent {
     });
 
     this.attributes.clear();
-    testCase.attributes.forEach(attr => {
+    testCase.attributes?.forEach(attr => {
       this.addAttribute(attr.key, attr.value);
     });
 
@@ -210,8 +264,10 @@ export class EditTestcasesComponent {
 
     if (formValue.id) {
       this.testCaseService.updateTestCase(testCase);
+      this.showAlertMessage('Test case updated successfully!', 'success');
     } else {
       this.testCaseService.addTestCase(testCase);
+      this.showAlertMessage('Test case added successfully!', 'success');
     }
 
     this.loadTestCases(this.selectedModule());
@@ -233,17 +289,7 @@ export class EditTestcasesComponent {
       this.testCaseService.deleteTestCase(this.pendingDeleteId);
       this.loadTestCases(this.selectedModule());
       this.pendingDeleteId = null;
-
-      this.alertMessage = 'Test case deleted successfully.';
-      this.alertType = 'success';
-      this.isConfirmAlert = false;
-      this.showAlert = true;
-
-      this.cdr.detectChanges(); 
-      setTimeout(() => {
-        this.showAlert = false;
-        this.cdr.detectChanges();
-      }, 2500);
+      this.showAlertMessage('Test case deleted successfully!', 'success');
     }
   }
 
@@ -255,7 +301,20 @@ export class EditTestcasesComponent {
   }
 
   goBack(): void {
-    this.router.navigate(['/tester/add-testcases']);
+    const queryParams = this.productId() ? { productId: this.productId() } : undefined;
+    this.router.navigate(['/tester/add-testcases'], { queryParams });
+  }
+
+  private showAlertMessage(message: string, type: 'success' | 'error' | 'warning'): void {
+    this.alertMessage = message;
+    this.alertType = type;
+    this.showAlert = true;
+    this.isConfirmAlert = false;
+    
+    setTimeout(() => {
+      this.showAlert = false;
+      this.cdr.detectChanges();
+    }, 3000);
   }
 
   private markFormGroupTouched(formGroup: FormGroup): void {
@@ -271,4 +330,10 @@ export class EditTestcasesComponent {
       }
     });
   }
+  printData() {
+  console.log('All modules:', this.testCaseService.getModules());
+  console.log('All test cases in service:', this.testCaseService.getTestCases());
+  console.log('Test cases for mod1:', 
+    this.testCaseService.getTestCases().filter(tc => tc.moduleId === 'mod1'));
+}
 }

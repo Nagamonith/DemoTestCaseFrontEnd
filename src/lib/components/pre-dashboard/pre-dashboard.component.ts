@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Router } from '@angular/router';
+import { PageTitleService } from 'src/app/shared/services/page-title.service';
 
 interface AssetSummary {
   type: string;
@@ -86,9 +87,10 @@ export class PreDashboardComponent implements OnInit {
 selectedVendorId: string = '';
   
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router,private pageTitleService: PageTitleService) {}
 
   ngOnInit() {
+    this.pageTitleService.setTitle('Assest Management');
     this.fetchAssetTypes();
     this.fetchAssetSummaries();
      this.fetchVendors();

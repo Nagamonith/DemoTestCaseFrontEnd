@@ -1,9 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import * as XLSX from 'xlsx';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
+import { ProductModule } from 'src/app/shared/modles/module.model';
 
 @Component({
   selector: 'app-add-testcases',
@@ -12,8 +13,9 @@ import { TestCaseService } from 'src/app/shared/services/test-case.service';
   templateUrl: './add-testcases.component.html',
   styleUrls: ['./add-testcases.component.css']
 })
-export class AddTestcasesComponent {
+export class AddTestcasesComponent implements OnInit {
   private testCaseService = inject(TestCaseService);
+  private route = inject(ActivatedRoute);
 
   selectedModule = signal<string | null>(null);
   selectedVersion = signal<string | null>(null);
@@ -21,13 +23,33 @@ export class AddTestcasesComponent {
   showAddVersionForm = false;
   newModuleName = '';
   newVersionName = 'v1.0';
+  productId = signal<string | null>(null);
 
-  modules = this.testCaseService.getModules();
-  versions = computed(() => 
-    this.selectedModule() 
-      ? this.testCaseService.getVersionsByModule(this.selectedModule()!) 
+  modules = signal<ProductModule[]>([]);
+  versions = computed(() =>
+    this.selectedModule()
+      ? this.testCaseService.getVersionsByModule(this.selectedModule()!)
       : []
   );
+
+  ngOnInit() {
+    this.route.queryParamMap.subscribe(params => {
+      this.productId.set(params.get('productId'));
+      this.loadModules();
+    });
+  }
+
+  loadModules() {
+    const productId = this.productId();
+    if (productId) {
+      this.modules.set(this.testCaseService.getModulesByProduct(productId));
+    } else {
+      this.modules.set(this.testCaseService.getModules());
+    }
+    console.log('Loaded modules:', this.modules()); // Debug log
+  }
+
+  
 
   onModuleChange(moduleId: string): void {
     this.selectedModule.set(moduleId);
@@ -39,27 +61,6 @@ export class AddTestcasesComponent {
     this.selectedVersion.set(version);
     this.resetForms();
   }
-
-//  addNewModule(): void {
-//     if (!this.newModuleName.trim()) {
-//       alert('Module name is required');
-//       return;
-//     }
-
-//     if (!this.selectedProduct()) {
-//       alert('Please select a product first');
-//       return;
-//     }
-
-//     const newId = this.testCaseService.addModule(
-//       this.newModuleName.trim(),
-//       this.selectedProduct()!
-//     );
-    
-//     this.selectedModule.set(newId);
-//     this.resetForms();
-//   }
-
 
   addNewVersion(): void {
     if (!this.newVersionName.trim()) {
@@ -88,7 +89,7 @@ export class AddTestcasesComponent {
       return;
     }
 
-    const module = this.modules.find(m => m.id === this.selectedModule());
+    const module = this.modules().find(m => m.id === this.selectedModule());
     if (!module) return;
 
     const wb = XLSX.utils.book_new();
