@@ -1,14 +1,14 @@
 /* Results Container */
 .results-container {
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
   padding: 20px;
   font-family: 'Arial', sans-serif;
   line-height: 1.6;
-  background: linear-gradient(270deg, #f7ffff, #daf2fe, #d5ecf7, #f7ffff);
+  background: linear-gradient(270deg, #ceffff, #cce9f7, #c0e9fc, #d5ffff);
   background-size: 300% 300%;
   animation: skySlide 8s ease infinite;
-}
+} 
 
 /* Text Center */
 .text-center {

@@ -40,16 +40,26 @@ export class AddTestcasesComponent {
     this.resetForms();
   }
 
-  addNewModule(): void {
-    if (!this.newModuleName.trim()) {
-      alert('Module name is required');
-      return;
-    }
+//  addNewModule(): void {
+//     if (!this.newModuleName.trim()) {
+//       alert('Module name is required');
+//       return;
+//     }
 
-    const newId = this.testCaseService.addModule(this.newModuleName.trim());
-    this.selectedModule.set(newId);
-    this.resetForms();
-  }
+//     if (!this.selectedProduct()) {
+//       alert('Please select a product first');
+//       return;
+//     }
+
+//     const newId = this.testCaseService.addModule(
+//       this.newModuleName.trim(),
+//       this.selectedProduct()!
+//     );
+    
+//     this.selectedModule.set(newId);
+//     this.resetForms();
+//   }
+
 
   addNewVersion(): void {
     if (!this.newVersionName.trim()) {

@@ -51,6 +51,7 @@ export class SheetMatchingComponent {
   attributeMappings = signal<Record<string, string>>({});
   isProcessing = signal(false);
   errorMessage = signal<string | null>(null);
+  
 
   coreMappings = signal<FieldMapping[]>([
     { field: 'slNo', label: 'Sl.No', mappedTo: '', required: true },
@@ -137,7 +138,7 @@ export class SheetMatchingComponent {
       }
 
       const moduleName = this.generateModuleName();
-      const moduleId = this.testCaseService.addModule(moduleName);
+      const moduleId = this.testCaseService.addModule(moduleName,"");
 
       this.sheetData().forEach((row, index) => {
         const attributes = this.customAttributes()
