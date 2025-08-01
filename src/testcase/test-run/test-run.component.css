@@ -177,3 +177,33 @@ th {
 .suites-list-container tr:hover {
   background-color: #f9f9f9;
 }
+.runs-list {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.runs-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.runs-list th,
+.runs-list td {
+  padding: 10px;
+  text-align: left;
+  white-space: nowrap; /* prevent text wrapping */
+}
+
+.runs-list .actions {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.btn-edit,
+.btn-delete {
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}

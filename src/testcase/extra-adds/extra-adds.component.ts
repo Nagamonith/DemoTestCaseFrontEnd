@@ -39,7 +39,6 @@ export class ExtraAddsComponent implements OnInit {
     boxOpen: faBoxOpen
   };
 
-  // Local state
   products = signal<Product[]>([]);
   selectedProductId = signal<string>(''); 
   newProductName = '';
@@ -52,15 +51,13 @@ export class ExtraAddsComponent implements OnInit {
   pendingAction: PendingAction = null;
   showProductList = false;
   showProducts = false;
+  showAutoSavePopup = false;
 
   newModuleName = '';
   newModuleVersion = 'v1.0';
   newVersionName = '';
   selectedModuleId = '';
 
-  showAutoSavePopup = false;
-
-  // Alert properties
   showAlert = false;
   alertMessage = '';
   alertType: 'success' | 'error' | 'warning' | 'info' = 'info';
@@ -88,6 +85,9 @@ export class ExtraAddsComponent implements OnInit {
     return result;
   });
 
+  newProductVersion = '';
+  versionExists = false;
+
   constructor(
     private productService: ProductService,
     public testCaseService: TestCaseService,
@@ -108,8 +108,22 @@ export class ExtraAddsComponent implements OnInit {
     this.modules.set(this.testCaseService.getModules());
   }
 
+  resetAllToggles(): void {
+    this.showAddProductForm = false;
+    this.showProductSelectorModal = false;
+    this.showAddModuleForm = false;
+    this.showAddVersionForm = false;
+    this.showModuleList = false;
+    this.showProductList = false;
+    this.showProducts = false;
+    this.pendingAction = null;
+    this.showAutoSavePopup = false;
+  }
+
   toggleAutoSavePopup(): void {
-    this.showAutoSavePopup = !this.showAutoSavePopup;
+    const wasOpen = this.showAutoSavePopup;
+    this.resetAllToggles();
+    this.showAutoSavePopup = !wasOpen;
   }
 
   toggleAutoSave(): void {
@@ -160,34 +174,35 @@ export class ExtraAddsComponent implements OnInit {
 
   handleAddModule() {
     if (this.products().length === 0) {
+      this.resetAllToggles();
       this.showAddProductForm = true;
       return;
     }
+    this.resetAllToggles();
     this.pendingAction = 'addModule';
     this.showProductSelectorModal = true;
   }
-saveModule(): void {
-  const name = this.newModuleName.trim();
-  if (!name) {
-    this.showAlertMessage('Module name is required', 'warning');
-    return;
+
+  saveModule(): void {
+    const name = this.newModuleName.trim();
+    if (!name) {
+      this.showAlertMessage('Module name is required', 'warning');
+      return;
+    }
+    const productId = this.selectedProductId();
+    const newId = this.testCaseService.addModule(name, productId);
+    this.modules.set(this.testCaseService.getModules());
+    this.showAlertMessage('Module added successfully', 'success');
+    this.resetModuleForm();
   }
 
-  const productId = this.selectedProductId();
-  const newId = this.testCaseService.addModule(name, productId);
-  this.modules.set(this.testCaseService.getModules());
-  this.showAlertMessage('Module added successfully', 'success');
-  this.resetModuleForm();
-}
-public resetModuleForm(): void {
-  this.newModuleName = '';
-  this.showAddModuleForm = false;
-}
+  resetModuleForm(): void {
+    this.newModuleName = '';
+    this.showAddModuleForm = false;
+  }
 
   startEditing(module: Module) {
-    this.modules.update(mods =>
-      mods.map(m => m.id === module.id ? { ...m, editing: true } : m)
-    );
+    this.modules.update(mods => mods.map(m => m.id === module.id ? { ...m, editing: true } : m));
   }
 
   saveEditing(module: Module) {
@@ -196,10 +211,7 @@ public resetModuleForm(): void {
       this.showAlertMessage('Module name cannot be empty', 'warning');
       return;
     }
-
-    this.modules.update(mods =>
-      mods.map(m => m.id === module.id ? { ...m, name, editing: false } : m)
-    );
+    this.modules.update(mods => mods.map(m => m.id === module.id ? { ...m, name, editing: false } : m));
     this.showAlertMessage('Module updated successfully', 'success');
   }
 
@@ -213,49 +225,48 @@ public resetModuleForm(): void {
       this.showAlertMessage('Please add a module first', 'warning');
       return;
     }
+    this.resetAllToggles();
     this.pendingAction = 'addVersion';
     this.showProductSelectorModal = true;
   }
 
-// In the component class
-saveVersion() {
-  const version = this.newVersionName.trim();
-  if (!version) {
-    this.showAlertMessage('Version name is required', 'warning');
-    return;
+  saveVersion() {
+    const version = this.newVersionName.trim();
+    if (!version) {
+      this.showAlertMessage('Version name is required', 'warning');
+      return;
+    }
+    const productId = this.selectedProductId();
+    if (!productId) {
+      this.showAlertMessage('No product selected', 'warning');
+      return;
+    }
+    const existingVersions = this.testCaseService.getVersionsByProduct(productId);
+    if (existingVersions.includes(version)) {
+      this.showAlertMessage('This version already exists for the selected product', 'warning');
+      return;
+    }
+    this.testCaseService.addVersionToProduct(productId, version);
+    this.showAlertMessage('Version added successfully', 'success');
+    this.resetVersionForm();
   }
 
-  const productId = this.selectedProductId();
-  if (!productId) {
-    this.showAlertMessage('No product selected', 'warning');
-    return;
+  resetVersionForm() {
+    this.newVersionName = '';
+    this.showAddVersionForm = false;
   }
 
-  // Check if version already exists for this product
-  const existingVersions = this.testCaseService.getVersionsByProduct(productId);
-  if (existingVersions.includes(version)) {
-    this.showAlertMessage('This version already exists for the selected product', 'warning');
-    return;
+  getProductVersions(productId: string): string[] {
+    return this.testCaseService.getVersionsByProduct(productId);
   }
-
-  this.testCaseService.addVersionToProduct(productId, version);
-  this.showAlertMessage('Version added successfully', 'success');
-  this.resetVersionForm();
-}
-
-private resetVersionForm() {
-  this.newVersionName = '';
-  this.showAddVersionForm = false;
-}
-getProductVersions(productId: string): string[] {
-  return this.testCaseService.getVersionsByProduct(productId);
-}
 
   handleToggleModules() {
     if (this.products().length === 0) {
+      this.resetAllToggles();
       this.showAddProductForm = true;
       return;
     }
+    this.resetAllToggles();
     this.pendingAction = 'toggleModules';
     this.showProductSelectorModal = true;
   }
@@ -265,9 +276,7 @@ getProductVersions(productId: string): string[] {
       this.showAlertMessage('Please select a product', 'warning');
       return;
     }
-
     this.showProductSelectorModal = false;
-
     switch (this.pendingAction) {
       case 'addModule':
         this.showAddModuleForm = true;
@@ -279,7 +288,6 @@ getProductVersions(productId: string): string[] {
         this.showModuleList = !this.showModuleList;
         break;
     }
-
     this.pendingAction = null;
   }
 
@@ -294,9 +302,7 @@ getProductVersions(productId: string): string[] {
       this.showAlertMessage('Product name cannot be empty', 'warning');
       return;
     }
-
     product.editing = false;
-    
     this.productService.updateProduct(product).subscribe({
       next: () => {
         this.loadProducts();
@@ -320,7 +326,7 @@ getProductVersions(productId: string): string[] {
     this.alertType = 'warning';
     this.isConfirmAlert = true;
     this.showAlert = true;
-    this.cdr.detectChanges(); // Force immediate update
+    this.cdr.detectChanges();
   }
 
   showAlertMessage(message: string, type: 'success' | 'error' | 'warning' | 'info') {
@@ -328,8 +334,8 @@ getProductVersions(productId: string): string[] {
     this.alertType = type;
     this.isConfirmAlert = false;
     this.showAlert = true;
-    this.cdr.detectChanges(); 
-    
+    this.cdr.detectChanges();
+
     if (type !== 'warning') {
       setTimeout(() => {
         this.showAlert = false;
@@ -337,61 +343,56 @@ getProductVersions(productId: string): string[] {
       }, 3000);
     }
   }
-newProductVersion = '';
-versionExists = false;
 
-// Add these methods to your component class
-addProductVersion(): void {
-  const version = this.newProductVersion.trim();
-  if (!version) return;
+  addProductVersion(): void {
+    const version = this.newProductVersion.trim();
+    if (!version) return;
 
-  const productId = this.selectedProductId();
-  if (!productId) return;
+    const productId = this.selectedProductId();
+    if (!productId) return;
 
-  if (this.testCaseService.getVersionsByProduct(productId).includes(version)) {
-    this.versionExists = true;
-    return;
-  }
-
-  this.versionExists = false;
-  this.testCaseService.addVersionToProduct(productId, version);
-  this.newProductVersion = '';
-  this.showAlertMessage('Version added successfully', 'success');
-}
-confirmRemoveProductVersion(version: string): void {
-  this.pendingActionData = { 
-    type: 'version', 
-    id: version,
-    productId: this.selectedProductId()
-  };
-  this.showConfirmAlert('Are you sure you want to remove this version?');
-}
-handleConfirmDelete(): void {
-  if (this.pendingActionData) {
-    if (this.pendingActionData.type === 'product') {
-      this.productService.deleteProduct(this.pendingActionData.id).subscribe({
-        next: () => {
-          this.loadProducts();
-          if (this.selectedProductId() === this.pendingActionData.id) {
-            this.selectedProductId.set('');
-          }
-          this.showAlertMessage('Product deleted successfully', 'success');
-        },
-        error: (err) => {
-          console.error('Failed to delete product:', err);
-          this.showAlertMessage('Failed to delete product. Please try again.', 'error');
-        }
-      });
-    } else if (this.pendingActionData.type === 'module') {
-      this.modules.update(mods => mods.filter(m => m.id !== this.pendingActionData.id));
-      this.showAlertMessage('Module deleted successfully', 'success');
-    } else if (this.pendingActionData.type === 'version') {
-      this.removeProductVersion(this.pendingActionData.id);
+    if (this.testCaseService.getVersionsByProduct(productId).includes(version)) {
+      this.versionExists = true;
+      return;
     }
+
+    this.versionExists = false;
+    this.testCaseService.addVersionToProduct(productId, version);
+    this.newProductVersion = '';
+    this.showAlertMessage('Version added successfully', 'success');
   }
-  this.pendingActionData = null;
-  this.pendingDeleteId = null;
-}
+
+  confirmRemoveProductVersion(version: string): void {
+    this.pendingActionData = { type: 'version', id: version, productId: this.selectedProductId() };
+    this.showConfirmAlert('Are you sure you want to remove this version?');
+  }
+
+  handleConfirmDelete(): void {
+    if (this.pendingActionData) {
+      if (this.pendingActionData.type === 'product') {
+        this.productService.deleteProduct(this.pendingActionData.id).subscribe({
+          next: () => {
+            this.loadProducts();
+            if (this.selectedProductId() === this.pendingActionData.id) {
+              this.selectedProductId.set('');
+            }
+            this.showAlertMessage('Product deleted successfully', 'success');
+          },
+          error: (err) => {
+            console.error('Failed to delete product:', err);
+            this.showAlertMessage('Failed to delete product. Please try again.', 'error');
+          }
+        });
+      } else if (this.pendingActionData.type === 'module') {
+        this.modules.update(mods => mods.filter(m => m.id !== this.pendingActionData.id));
+        this.showAlertMessage('Module deleted successfully', 'success');
+      } else if (this.pendingActionData.type === 'version') {
+        this.removeProductVersion(this.pendingActionData.id);
+      }
+    }
+    this.pendingActionData = null;
+    this.pendingDeleteId = null;
+  }
 
   handleCancelDelete(): void {
     this.showAlert = false;
@@ -399,26 +400,17 @@ handleConfirmDelete(): void {
     this.pendingDeleteId = null;
     this.cdr.detectChanges();
   }
-  // Add these properties to your component class
 
+  removeProductVersion(version: string): void {
+    const productId = this.selectedProductId();
+    if (!productId) return;
+    this.testCaseService.removeVersionFromProduct(productId, version);
+    this.showAlertMessage('Version removed successfully', 'success');
+  }
 
-// Add these methods to your component class
-
-
-removeProductVersion(version: string): void {
-  const productId = this.selectedProductId();
-  if (!productId) return;
-
-  this.testCaseService.removeVersionFromProduct(productId, version);
-  this.showAlertMessage('Version removed successfully', 'success');
-}
-// Add to your component class
-
-
-toggleProductSelection(productId: string): void {
-  this.selectedProductId.set(
-    this.selectedProductId() === productId ? '' : productId
-  );
-}
-
+  toggleProductSelection(productId: string): void {
+    this.selectedProductId.set(
+      this.selectedProductId() === productId ? '' : productId
+    );
+  }
 }
