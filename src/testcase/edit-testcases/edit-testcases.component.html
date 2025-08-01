@@ -7,14 +7,6 @@
   (onCancel)="handleCancelDelete()">
 </app-alert>
   <h2 class="text-center">Test Case Management</h2>
-  <!-- <app-alert
-  [type]="alertType"
-  [message]="alertMessage"
-  [show]="showAlert"
-  [isConfirm]="isConfirmAlert"
-  (onConfirm)="handleConfirmDelete()"
-  (onCancel)="handleCancelDelete()">
-</app-alert> -->
 
 
   <!-- Module and Version display -->
@@ -53,14 +45,15 @@
       <thead>
         <tr>
           <th>Sl.No</th>
+          <th>Version</th>
           <th>Test Case ID</th>
           <th>Use Case</th>
           <th>Scenario</th>
           <th>Steps</th>
           <th>Expected</th>
-          <th *ngFor="let attr of getUniqueAttributes()">
+          <!-- <th *ngFor="let attr of getUniqueAttributes()">
             {{ attr }}
-          </th>
+          </th> -->
           <th>Actions</th>
         </tr>
       </thead>
@@ -68,14 +61,15 @@
       <tbody>
         <tr *ngFor="let testCase of filteredTestCases(); let i = index">
           <td>{{ testCase.slNo }}</td>
+          <td>{{ testCase.version}}</td>
           <td>{{ testCase.testCaseId }}</td>
           <td class="wrap-text">{{ testCase.useCase }}</td>
           <td class="wrap-text">{{ testCase.scenario }}</td>
           <td class="wrap-text">{{ testCase.steps }}</td>
           <td class="wrap-text">{{ testCase.expected }}</td>
-          <td *ngFor="let attr of getUniqueAttributes()" class="wrap-text">
+          <!-- <td *ngFor="let attr of getUniqueAttributes()" class="wrap-text">
             {{ getAttributeValue(testCase, attr) }}
-          </td>
+          </td> -->
           <td class="actions">
             <button class="btn-small" (click)="startEditing(testCase)">Edit</button>
             <button class="btn-small-danger" (click)="deleteTestCase(testCase.id, $event)">Delete</button>

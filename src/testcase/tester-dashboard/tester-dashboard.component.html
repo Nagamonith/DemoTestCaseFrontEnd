@@ -19,7 +19,7 @@
         <ul *ngIf="expandedProductId === product.id" class="submenu">
       <li>
   <div class="submenu-toggle" (click)="toggleTestRunManagement(product.id)">
-    ‎ ‎‎➟ Test Run Management
+    ‎ ‎‎➟ Test Design
     <span class="bold-arrow">
       {{ expandedTestRunManagementProductId === product.id ? '«' : '»' }}
     </span>
@@ -32,20 +32,26 @@
     </li>
     <li>
       <a [routerLink]="['/tester/test-runs']" [queryParams]="{ productId: product.id, productName: product.name }">
-        ➟ Test Runs
+        ➟ Test Run
       </a>
     </li>
+    <li>
+            <a [routerLink]="['/tester/add-testcases']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟  Test Cases</a>
+          </li>
+    <li>
+            <a [routerLink]="['/tester/summary']" [queryParams]="{ productId: product.id, productName: product.name }">➟  Summary</a>
+          </li>
   </ul>
 </li>
 
-          <li>
+          <!-- <li>
             <a [routerLink]="['/tester/add-testcases']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟  Test Cases</a>
-          </li>
+          </li> -->
           <li>
             <a [routerLink]="['/tester/import-excel']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟ Import Excel</a>
           </li>
           <li>
-            <a [routerLink]="['/tester/modules']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟  Test Run</a>
+            <a [routerLink]="['/tester/modules']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟  Test Runs</a>
           </li>
           <li>
             <div class="submenu-toggle" (click)="toggleResults(product.id)">
@@ -68,9 +74,9 @@
               </li>
             </ul>
           </li>
-          <li>
+          <!-- <li>
             <a [routerLink]="['/tester/summary']" [queryParams]="{ productId: product.id, productName: product.name }">➟  Summary</a>
-          </li>
+          </li> -->
         </ul>
       </li>
 
