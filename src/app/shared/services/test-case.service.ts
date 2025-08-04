@@ -1,13 +1,12 @@
-import { Injectable, signal } from '@angular/core';
-// import { TestCase } from 'src/app/shared/modles/testcase.model';
-// import { ProductModule } from 'src/app/shared/modles/module.model';
-import { ProductVersion } from 'src/app/shared/modles/version.model';
+// test-case.service.ts
+import { Injectable, signal, effect, inject } from '@angular/core';
+import { ProductVersion } from '../modles/version.model';
 import { TestCase } from '../modles/testcase.model';
 import { ProductModule } from '../modles/module.model';
 import { DUMMY_TEST_CASES } from '../data/dummy-testcases';
 import { DUMMY_MODULES } from '../data/dummy-model-data';
-// import { DUMMY_MODULES, DUMMY_TEST_CASES } from 'src/app/shared/data/dummy-model-data';
-// import { DUMMY_TEST_CASES, DUMMY_MODULES, TestCase, ProductModule } from '../data/test-data';
+import { ProductService } from './product.service';
+import { first, lastValueFrom, take } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -16,75 +15,99 @@ export class TestCaseService {
   private testCases = signal<TestCase[]>([]);
   private productModules = signal<ProductModule[]>([]);
   private productVersions = signal<ProductVersion[]>([]);
+  private productService = inject(ProductService);
 
   constructor() {
     this.initializeData();
+    this.setupPersistence();
+  }
+
+  private setupPersistence(): void {
+    effect(() => {
+      try {
+        localStorage.setItem('testCases', JSON.stringify(this.testCases()));
+        localStorage.setItem('productModules', JSON.stringify(this.productModules()));
+        localStorage.setItem('productVersions', JSON.stringify(this.productVersions()));
+      } catch (e) {
+        console.error('Failed to save data to localStorage', e);
+      }
+    });
   }
 
   private initializeData(): void {
-    // Process test cases to ensure all fields have values
-    const processedTestCases = DUMMY_TEST_CASES.map(tc => ({
-      ...tc,
-      result: tc.result || 'Pending',
-      actual: tc.actual || '',
-      remarks: tc.remarks || '',
-      uploads: tc.uploads || [],
-      attributes: tc.attributes || [],
-    }));
+    try {
+      const savedTestCases = localStorage.getItem('testCases');
+      const savedModules = localStorage.getItem('productModules');
+      const savedVersions = localStorage.getItem('productVersions');
 
-    this.productModules.set(DUMMY_MODULES);
-    this.testCases.set(processedTestCases);
-    this.initializeVersions();
+      if (savedTestCases && savedModules && savedVersions) {
+        this.testCases.set(JSON.parse(savedTestCases));
+        this.productModules.set(JSON.parse(savedModules));
+        this.productVersions.set(JSON.parse(savedVersions));
+        console.log('Data loaded from localStorage');
+        this.validateDataIntegrity();
+        return;
+      }
+    } catch (e) {
+      console.error('Failed to parse saved data', e);
+      localStorage.clear();
+    }
 
-    console.log('Data initialized:', {
-      modules: this.productModules().length,
-      testCases: this.testCases().length,
-      mod1TestCases: this.testCases().filter(tc => tc.moduleId === 'mod1').length
-    });
+    console.log('Initializing with dummy data');
+    this.resetToDummyData();
   }
 
   private initializeVersions(): void {
     const versionsMap = new Map<string, ProductVersion>();
-    
     this.testCases().forEach(tc => {
-      if (!versionsMap.has(tc.version)) {
-        const module = this.productModules().find(m => m.id === tc.moduleId);
-        versionsMap.set(tc.version, {
-          id: `ver-${tc.version}`,
-          productId: module?.productId || '1', // Changed from 'p1' to '1' for consistency
+      const module = this.productModules().find(m => m.id === tc.moduleId);
+      if (module) {
+        versionsMap.set(`${module.productId}-${tc.version}`, {
+          id: `ver-${tc.version}-${module.productId}`,
+          productId: module.productId,
           version: tc.version
         });
       }
     });
-    
     this.productVersions.set(Array.from(versionsMap.values()));
   }
 
-  // ======== Module Management ========
+  // ========== Module Management ==========
   getModules(): ProductModule[] {
     return this.productModules();
   }
 
   getModulesByProduct(productId: string): ProductModule[] {
-    // Handle both '1' and 'p1' formats for backward compatibility
-    const normalizedProductId = productId.startsWith('p') ? productId.substring(1) : productId;
-    return this.productModules().filter(m => 
-      m.productId === normalizedProductId || 
-      m.productId === `p${normalizedProductId}`
+    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+    return this.productModules().filter(m =>
+      m.productId === normalized || m.productId === `p${normalized}`
     );
   }
 
   getModulesByVersion(productId: string, version: string): ProductModule[] {
-    const normalizedProductId = productId.startsWith('p') ? productId.substring(1) : productId;
-    return this.productModules().filter(m => 
-      (m.productId === normalizedProductId || m.productId === `p${normalizedProductId}`) && 
+    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+    return this.productModules().filter(m =>
+      (m.productId === normalized || m.productId === `p${normalized}`) &&
       m.version === version
     );
   }
+async addModule(name: string, productId: string): Promise<string> {
+  if (!name?.trim()) throw new Error('Module name is required');
+  if (!productId) throw new Error('Product ID is required');
 
-  addModule(name: string, productId: string): string {
-    if (!name?.trim()) {
-      throw new Error('Module name is required');
+  try {
+    // Get the products array from the Observable
+    const products = await lastValueFrom(
+      this.productService.getProducts().pipe(
+        take(1),
+        first()
+      )
+    );
+
+    // Verify product exists
+    const productExists = products?.some(p => p.id === productId);
+    if (!productExists) {
+      throw new Error(`Product with ID ${productId} not found`);
     }
 
     const newId = `mod${Date.now()}`;
@@ -93,11 +116,12 @@ export class TestCaseService {
 
     const newModule: ProductModule = {
       id: newId,
-      productId: productId.startsWith('p') ? productId.substring(1) : productId,
+      productId,
       version: latestVersion,
       name: name.trim(),
     };
 
+    // Update modules
     this.productModules.update(curr => [...curr, newModule]);
 
     // Add initial test case
@@ -118,7 +142,11 @@ export class TestCaseService {
     });
 
     return newId;
+  } catch (error) {
+    console.error('Error in addModule:', error);
+    throw error; // Re-throw to let calling code handle it
   }
+}
 
   deleteModule(moduleId: string): boolean {
     const exists = this.productModules().some(m => m.id === moduleId);
@@ -130,50 +158,51 @@ export class TestCaseService {
     return false;
   }
 
-  // ======== Version Management ========
-  addVersionToProduct(productId: string, version: string): void {
-    if (!/^v\d+(\.\d+)*$/.test(version)) {
-      throw new Error('Version must be in format vX.Y');
-    }
-
-    const normalizedProductId = productId.startsWith('p') ? productId.substring(1) : productId;
-    const exists = this.productVersions().some(v => 
-      (v.productId === normalizedProductId || v.productId === `p${normalizedProductId}`) && 
-      v.version === version
-    );
-
-    if (!exists) {
-      this.productVersions.update(curr => [
-        ...curr,
-        { id: `ver${Date.now()}`, productId: normalizedProductId, version },
-      ]);
-    }
-  }
-
+  // ========== Version Management ==========
   getVersionsByProduct(productId: string): string[] {
-    const normalizedProductId = productId.startsWith('p') ? productId.substring(1) : productId;
+    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
     return this.productVersions()
-      .filter(v => v.productId === normalizedProductId)
+      .filter(v => v.productId === normalized)
       .map(v => v.version)
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }
 
+  hasVersion(productId: string, version: string): boolean {
+    return this.getVersionsByProduct(productId).includes(version);
+  }
+
+  addVersionToProduct(productId: string, version: string): void {
+    if (!/^v\d+(\.\d+)*$/.test(version)) throw new Error('Version must be in format vX.Y');
+    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+
+    if (!this.productVersions().some(v => v.productId === normalized && v.version === version)) {
+      this.productVersions.update(curr => [...curr, {
+        id: `ver-${version}-${normalized}`,
+        productId: normalized,
+        version
+      }]);
+    }
+  }
+
   removeVersionFromProduct(productId: string, version: string): boolean {
-    const normalizedProductId = productId.startsWith('p') ? productId.substring(1) : productId;
-    const original = this.productVersions();
-    const updated = original.filter(v => 
-      !(v.productId === normalizedProductId && v.version === version)
+    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+    const updated = this.productVersions().filter(v =>
+      !(v.productId === normalized && v.version === version)
     );
-    
-    if (updated.length !== original.length) {
+
+    if (updated.length !== this.productVersions().length) {
       this.productVersions.set(updated);
       return true;
     }
     return false;
   }
 
-  hasVersion(productId: string, version: string): boolean {
-    return this.getVersionsByProduct(productId).includes(version);
+  getVersionsByModule(moduleId: string): string[] {
+    const versions = new Set<string>();
+    this.testCases()
+      .filter(tc => tc.moduleId === moduleId)
+      .forEach(tc => versions.add(tc.version));
+    return Array.from(versions).sort();
   }
 
   addVersion(moduleId: string, version: string): TestCase {
@@ -200,15 +229,7 @@ export class TestCaseService {
     });
   }
 
-  getVersionsByModule(moduleId: string): string[] {
-    const versions = new Set<string>();
-    this.testCases()
-      .filter(tc => tc.moduleId === moduleId)
-      .forEach(tc => versions.add(tc.version));
-    return Array.from(versions).sort();
-  }
-
-  // ======== Test Case Management ========
+  // ========== Test Case Management ==========
   getTestCases(): TestCase[] {
     return this.testCases();
   }
@@ -226,7 +247,7 @@ export class TestCaseService {
   }
 
   addTestCase(testCase: Omit<TestCase, 'id'>): TestCase {
-    if (!testCase.moduleId || !this.productModules().some(m => m.id === testCase.moduleId)) {
+    if (!this.productModules().some(m => m.id === testCase.moduleId)) {
       throw new Error(`Invalid moduleId: ${testCase.moduleId}`);
     }
 
@@ -241,14 +262,11 @@ export class TestCaseService {
     };
 
     this.testCases.update(curr => [...curr, completeCase]);
+    this.ensureVersionExists(completeCase.moduleId, completeCase.version);
     return completeCase;
   }
 
   updateTestCase(updatedCase: TestCase): TestCase {
-    if (!this.productModules().some(m => m.id === updatedCase.moduleId)) {
-      throw new Error(`Invalid moduleId: ${updatedCase.moduleId}`);
-    }
-
     const completeCase: TestCase = {
       ...updatedCase,
       result: updatedCase.result || 'Pending',
@@ -274,7 +292,56 @@ export class TestCaseService {
     return false;
   }
 
-  // ======= Utility Methods =======
+  addTestCasesBulk(testCases: Omit<TestCase, 'id'>[]): { success: number; errors: number } {
+    let successCount = 0;
+    let errorCount = 0;
+
+    this.testCases.update(curr => {
+      const newCases = testCases.map(tc => {
+        try {
+          const completeCase: TestCase = {
+            ...tc,
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+            result: tc.result || 'Pending',
+            actual: tc.actual || '',
+            remarks: tc.remarks || '',
+            uploads: tc.uploads || [],
+            attributes: tc.attributes || [],
+          };
+          this.ensureVersionExists(completeCase.moduleId, completeCase.version);
+          successCount++;
+          return completeCase;
+        } catch (e) {
+          console.error(`Failed to add test case: ${e}`);
+          errorCount++;
+          return null;
+        }
+      }).filter(Boolean) as TestCase[];
+
+      return [...curr, ...newCases];
+    });
+
+    return { success: successCount, errors: errorCount };
+  }
+
+  private ensureVersionExists(moduleId: string, version: string): void {
+    const module = this.productModules().find(m => m.id === moduleId);
+    if (!module) return;
+
+    const exists = this.productVersions().some(v =>
+      v.productId === module.productId && v.version === version
+    );
+
+    if (!exists) {
+      this.productVersions.update(curr => [...curr, {
+        id: `ver-${version}-${module.productId}`,
+        productId: module.productId,
+        version
+      }]);
+    }
+  }
+
+  // ========== Utilities ==========
   private getNextSlNoForModule(moduleId: string): number {
     const moduleCases = this.testCases().filter(tc => tc.moduleId === moduleId);
     return moduleCases.length > 0
@@ -286,48 +353,60 @@ export class TestCaseService {
     return Math.floor(1000 + Math.random() * 9000).toString();
   }
 
-  // ======= Debug Methods =======
+  resetToDummyData(): void {
+    console.warn('Resetting to dummy data');
+    localStorage.clear();
+
+    const processedTestCases = DUMMY_TEST_CASES.map(tc => ({
+      ...tc,
+      result: tc.result || 'Pending',
+      actual: tc.actual || '',
+      remarks: tc.remarks || '',
+      uploads: tc.uploads || [],
+      attributes: tc.attributes || [],
+    }));
+
+    this.productModules.set(DUMMY_MODULES);
+    this.testCases.set(processedTestCases);
+    this.initializeVersions();
+  }
+
   debugCheckData(): void {
     console.log('=== DATA INTEGRITY CHECK ===');
-    console.log('All Modules:', this.productModules());
-    console.log('All Test Cases:', this.testCases());
-    
-    // Check for test cases with invalid module references
-    const invalidTestCases = this.testCases().filter(tc => 
+    console.log('Modules:', this.productModules().length);
+    console.log('Test Cases:', this.testCases().length);
+    console.log('Versions:', this.productVersions().length);
+
+    const orphaned = this.testCases().filter(tc =>
       !this.productModules().some(m => m.id === tc.moduleId)
     );
-    
-    if (invalidTestCases.length > 0) {
-      console.error('Test cases with invalid module references:', invalidTestCases);
-    } else {
-      console.log('All test cases have valid module references');
+
+    if (orphaned.length > 0) {
+      console.error('Orphaned test cases:', orphaned);
     }
 
-    // Check module coverage
     this.productModules().forEach(module => {
-      const moduleTestCases = this.testCases().filter(tc => tc.moduleId === module.id);
-      console.log(`Module ${module.id} (${module.name}) has ${moduleTestCases.length} test cases`);
+      const count = this.testCases().filter(tc => tc.moduleId === module.id).length;
+      console.log(`Module ${module.id} (${module.name}) has ${count} test cases`);
     });
   }
 
   validateDataIntegrity(): void {
     const modules = this.productModules();
     const testCases = this.testCases();
-    
-    // Check for orphaned test cases
-    const orphanedTestCases = testCases.filter(tc => 
+
+    const orphanedTestCases = testCases.filter(tc =>
       !modules.some(m => m.id === tc.moduleId)
     );
-    
+
     if (orphanedTestCases.length > 0) {
       console.error('Orphaned test cases found:', orphanedTestCases);
     }
-    
-    // Check for modules without test cases
-    const emptyModules = modules.filter(m => 
+
+    const emptyModules = modules.filter(m =>
       !testCases.some(tc => tc.moduleId === m.id)
     );
-    
+
     if (emptyModules.length > 0) {
       console.warn('Modules without test cases:', emptyModules);
     }

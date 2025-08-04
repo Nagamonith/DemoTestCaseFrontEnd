@@ -27,6 +27,7 @@
 </div>
 
 <!-- Dynamic Selection Dropdown -->
+<!-- Dynamic Selection Dropdown -->
 <div class="form-group">
   <label>
     {{ showTestRuns ? 'Select Test Run' : 
@@ -53,15 +54,14 @@
       </option>
     </ng-container>
     
-    <!-- Modules -->
+    <!-- Modules - Always show all filtered modules -->
     <ng-container *ngIf="!showTestSuites && !showTestRuns">
-      <option *ngFor="let module of modules" [value]="module.id">
+      <option *ngFor="let module of filteredModules()" [value]="module.id">
         {{ module.name }}
       </option>
     </ng-container>
   </select>
 </div>
-
 <!-- Action buttons for Modules and Test Suites -->
 <div class="action-buttons" *ngIf="(!showTestRuns && selectedModule()) || (showTestSuites && !showTestRuns && selectedModule())">
   <button class="btn-view" 

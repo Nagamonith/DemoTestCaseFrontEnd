@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
 import { TestRunService } from 'src/app/shared/services/test-run.service';
 import { TestSuiteService } from 'src/app/shared/services/test-suite.service';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-results',
@@ -17,10 +18,19 @@ export class ResultsComponent {
   private testCaseService = inject(TestCaseService);
   public testRunService = inject(TestRunService);
   private testSuiteService = inject(TestSuiteService);
+  private route = inject(ActivatedRoute);
 
   selectedModule = signal<string>('');
   filterStatus = signal<'All' | 'Pass' | 'Fail' | 'Pending'>('All');
-  modules = this.testCaseService.getModules();
+  selectedProductId = signal<string>('');
+    modules = computed(() => {
+    const allModules = this.testCaseService.getModules();
+    const productId = this.selectedProductId();
+    return productId 
+      ? allModules.filter(m => m.productId === productId)
+      : [];
+  });
+  
   
   // Test Run Results related signals
   showTestRunResults = signal(false);
@@ -105,6 +115,14 @@ export class ResultsComponent {
       }
     };
   });
+  constructor() {
+    // Watch for route changes
+    this.route.queryParams.subscribe(params => {
+      if (params['productId']) {
+        this.selectedProductId.set(params['productId']);
+      }
+    });
+  }
 
   // Get test cases for selected suite in test run
   suiteTestCases = computed(() => {
@@ -112,36 +130,38 @@ export class ResultsComponent {
     return this.testRunService.getTestCasesForSuite(this.selectedSuiteId());
   });
 
-  exportResults(): void {
-    const module = this.modules.find(m => m.id === this.selectedModule());
-    if (!module) return;
+exportResults(): void {
+  // Call modules() to get the array value
+  const module = this.modules().find(m => m.id === this.selectedModule());
+  if (!module) return;
 
-    const data = this.filteredTestCases().map(tc => ({
-      'Sl.No': tc.slNo,
-      'Test Case ID': tc.testCaseId,
-      'Use Case': tc.useCase,
-      'Scenario': tc.scenario,
-      'Steps': tc.steps,
-      'Expected': tc.expected,
-      'Result': tc.result,
-      'Actual': tc.actual || '',
-      'Remarks': tc.remarks || '',
-      ...tc.attributes.reduce((acc, attr) => {
-        acc[attr.key] = attr.value;
-        return acc;
-      }, {} as Record<string, string>)
-    }));
+  const data = this.filteredTestCases().map(tc => ({
+    'Sl.No': tc.slNo,
+    'Test Case ID': tc.testCaseId,
+    'Use Case': tc.useCase,
+    'Scenario': tc.scenario,
+    'Steps': tc.steps,
+    'Expected': tc.expected,
+    'Result': tc.result,
+    'Actual': tc.actual || '',
+    'Remarks': tc.remarks || '',
+    ...tc.attributes.reduce((acc, attr) => {
+      acc[attr.key] = attr.value;
+      return acc;
+    }, {} as Record<string, string>)
+  }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Test Results');
-    XLSX.writeFile(wb, `${module.name}_Test_Results.xlsx`);
-  }
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Test Results');
+  XLSX.writeFile(wb, `${module.name}_Test_Results.xlsx`);
+}
 
-  getModuleName(moduleId: string): string {
-    const module = this.modules.find(m => m.id === moduleId);
-    return module ? module.name : 'Unknown Module';
-  }
+getModuleName(moduleId: string): string {
+  // Call modules() to get the array value
+  const module = this.modules().find(m => m.id === moduleId);
+  return module ? module.name : 'Unknown Module';
+}
 
   copyTestCaseLink(testCaseId: string): void {
     const baseUrl = window.location.origin;

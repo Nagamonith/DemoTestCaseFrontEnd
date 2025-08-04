@@ -1,8 +1,8 @@
-// src/app/tester/summary/summary.component.ts
-import { Component, inject } from '@angular/core';
+import { Component, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
+import { ProductService } from 'src/app/shared/services/product.service';
 
 @Component({
   selector: 'app-summary',
@@ -13,33 +13,65 @@ import { TestCaseService } from 'src/app/shared/services/test-case.service';
 })
 export class SummaryComponent {
   private testCaseService = inject(TestCaseService);
+  private route = inject(ActivatedRoute);
+  private productService = inject(ProductService);
 
-  testCases = this.testCaseService.getTestCases();
-  modules = this.testCaseService.getModules();
+  // Get the selected product from route
+  selectedProductId = signal<string>('');
 
-  get versions(): string[] {
-    return Array.from(new Set(this.testCases.map(tc => tc.version)));
-  }
+  // Reactive data
+  allTestCases = this.testCaseService.getTestCases();
+  allModules = this.testCaseService.getModules();
 
-  get testMatrix(): Record<string, number> {
+  // Filtered data based on selected product
+  modules = computed(() => {
+    const productId = this.selectedProductId();
+    return productId 
+      ? this.allModules.filter(m => m.productId === productId)
+      : [];
+  });
+
+  testCases = computed(() => {
+    const productId = this.selectedProductId();
+    if (!productId) return [];
+    
+    const moduleIds = this.modules().map(m => m.id);
+    return this.allTestCases.filter(tc => moduleIds.includes(tc.moduleId));
+  });
+
+  versions = computed(() => {
+    return Array.from(new Set(this.testCases().map(tc => tc.version)));
+  });
+
+  testMatrix = computed(() => {
     const map: Record<string, number> = {};
-    for (const tc of this.testCases) {
+    for (const tc of this.testCases()) {
       const key = `${tc.moduleId}-${tc.version}`;
       map[key] = (map[key] || 0) + 1;
     }
     return map;
+  });
+
+  constructor() {
+    this.route.queryParams.subscribe(params => {
+      if (params['productId']) {
+        this.selectedProductId.set(params['productId']);
+      }
+    });
   }
 
   getCount(modId: string, ver: string): number {
-    return this.testMatrix[`${modId}-${ver}`] ?? 0;
+    return this.testMatrix()[`${modId}-${ver}`] ?? 0;
   }
 
   getVersionTotal(ver: string): number {
-    return this.modules.reduce((sum, mod) => sum + this.getCount(mod.id, ver), 0);
+    return this.modules().reduce((sum, mod) => sum + this.getCount(mod.id, ver), 0);
   }
 
-  getModuleName(id: string): string {
-    const mod = this.modules.find(m => m.id === id);
-    return mod ? mod.name : `Module ${id}`;
+  getProductName(): string {
+    const productId = this.selectedProductId();
+    if (!productId) return 'All Products';
+    const product = this.productService.getProductById(productId);
+    return product?.name || 'Selected Product';
   }
 }

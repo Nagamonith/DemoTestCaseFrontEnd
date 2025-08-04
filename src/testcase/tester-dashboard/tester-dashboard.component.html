@@ -48,8 +48,11 @@
             <a [routerLink]="['/tester/add-testcases']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟  Test Cases</a>
           </li> -->
           <li>
-            <a [routerLink]="['/tester/import-excel']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟ Import Excel</a>
-          </li>
+  <a [routerLink]="['/tester/import-excel']" 
+     [state]="{ productId: product.id, productName: product.name }">
+    ➟ Import Excel
+  </a>
+</li>
           <li>
             <a [routerLink]="['/tester/modules']" [queryParams]="{ productId: product.id, productName: product.name }"> ➟  Test Execution</a>
           </li>

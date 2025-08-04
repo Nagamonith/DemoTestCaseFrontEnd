@@ -1,69 +1,91 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { delay, tap } from 'rxjs/operators';
 import { DUMMY_PRODUCTS } from 'src/app/shared/data/dummy-products';
-
-export interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt?: Date;
-  editing?: boolean;
-}
+import { Product } from 'src/app/shared/modles/product.model';
 
 @Injectable({ providedIn: 'root' })
 export class ProductService {
   private products = new BehaviorSubject<Product[]>([...DUMMY_PRODUCTS]);
 
+  /**
+   * Returns observable stream of products with artificial delay.
+   */
   getProducts(): Observable<Product[]> {
     return this.products.asObservable().pipe(delay(200));
   }
 
-  addProduct(name: string): Observable<Product> {
-    if (!name?.trim()) {
-      return throwError(() => new Error('Product name is required'));
-    }
-
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      createdAt: new Date()
-    };
-
-    return of(newProduct).pipe(
-      delay(200),
-      tap(() => {
-        this.products.next([...this.products.value, newProduct]);
-      })
-    );
+  /**
+   * Returns the current list of products synchronously.
+   */
+  getProductsArray(): Product[] {
+    return this.products.value;
   }
 
-  updateProduct(product: Product): Observable<Product> {
-    if (!product.id || !product.name?.trim()) {
-      return throwError(() => new Error('Invalid product data'));
-    }
+  /**
+   * Returns a product matching the given ID.
+   */
+  getProductById(id: string): Product | undefined {
+    return this.products.value.find(product => product.id === id);
+  }
 
-    return of(product).pipe(
-      delay(200),
+  /**
+   * Add a new product.
+   * Returns Observable to simulate HTTP response.
+   */
+  addProduct(name: string): Observable<void> {
+    const newProduct: Product = {
+      id: Date.now().toString(),
+      name: name,
+      editing: false
+    };
+    const current = this.products.value;
+    this.products.next([...current, newProduct]);
+    return of(undefined).pipe(delay(200)); // Simulate API delay
+  }
+
+  /**
+   * Update an existing product.
+   * Returns Observable<boolean> to simulate HTTP response.
+   */
+  updateProduct(updatedProduct: Product): Observable<boolean> {
+    return of(true).pipe(
+      delay(200), // Simulate API delay
       tap(() => {
-        const updated = this.products.value.map(p =>
-          p.id === product.id ? { ...product, name: product.name.trim() } : p
-        );
+        const current = this.products.value;
+        const index = current.findIndex(p => p.id === updatedProduct.id);
+        if (index === -1) return;
+
+        const updated = [...current];
+        updated[index] = updatedProduct;
         this.products.next(updated);
       })
     );
   }
 
+  /**
+   * Delete a product by ID.
+   * Returns Observable<boolean> to simulate HTTP response.
+   */
   deleteProduct(id: string): Observable<boolean> {
-    if (!id) {
-      return throwError(() => new Error('Product ID is required'));
-    }
-
     return of(true).pipe(
-      delay(200),
+      delay(200), // Simulate API delay
       tap(() => {
-        this.products.next(this.products.value.filter(p => p.id !== id));
+        const current = this.products.value;
+        const updated = current.filter(p => p.id !== id);
+        this.products.next(updated);
       })
     );
   }
+
+  /**
+   * Helper method to add a product (synchronous version)
+   * For internal use if needed
+   */
+  private addProductSync(product: Product): void {
+    const current = this.products.value;
+    this.products.next([...current, product]);
+  }
 }
+
+export type { Product };

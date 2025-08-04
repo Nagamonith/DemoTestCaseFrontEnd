@@ -192,7 +192,7 @@
     <select id="moduleSelect"
             [(ngModel)]="selectedModule">
       <option value="">-- Choose Module --</option>
-      <option *ngFor="let module of modules" [value]="module.id">{{ module.name }}</option>
+      <option *ngFor="let module of modules()" [value]="module.id">{{ module.name }}</option>
     </select>
   </div>
 
