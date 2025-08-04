@@ -64,10 +64,15 @@
     <!-- Module Selection -->
     <div class="form-group">
       <label>Select Module</label>
+      
       <select [(ngModel)]="selectedModuleId" (ngModelChange)="onModuleSelect($event)">
         <option value="">-- Select Module --</option>
-        <option *ngFor="let module of modules()" [value]="module.id">{{ module.name }}</option>
+        <option *ngFor="let module of modules()" [value]="module.id">
+          {{ module.name }}
+        </option>
       </select>
+    
+      
     </div>
 
     <!-- Available Test Cases -->

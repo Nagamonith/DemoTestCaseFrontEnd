@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TestRunService } from 'src/app/shared/services/test-run.service';
 import { TestSuiteService } from 'src/app/shared/services/test-suite.service';
-import { TestRun } from 'src/app/shared/data/test-run.model';
-import { TestSuite } from 'src/app/shared/data/test-suite.model';
+import { TestRun } from 'src/app/shared/modles/test-run.model';
+import { TestSuite } from 'src/app/shared/modles/test-suite.model';
 import { AlertComponent } from 'src/app/shared/alert/alert.component';
 
 @Component({

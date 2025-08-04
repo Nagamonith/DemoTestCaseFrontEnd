@@ -24,9 +24,9 @@ import { TestCase } from 'src/app/shared/data/dummy-testcases';
 import { AutoSaveService } from 'src/app/shared/services/auto-save.service';
 import { AlertComponent } from "src/app/shared/alert/alert.component";
 import { TestSuiteService } from 'src/app/shared/services/test-suite.service';
-import { TestSuite } from 'src/app/shared/data/test-suite.model';
+import { TestSuite } from 'src/app/shared/modles/test-suite.model';
 import { TestRunService } from 'src/app/shared/services/test-run.service';
-import { TestRun } from 'src/app/shared/data/test-run.model';
+import { TestRun } from 'src/app/shared/modles/test-run.model';
 import { DomSanitizer } from '@angular/platform-browser';
 
 interface Filter {
