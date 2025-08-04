@@ -73,9 +73,11 @@ export class EditTestcasesComponent {
         });
         this.loadTestCases(moduleId);
         const versions = this.testCaseService.getVersionsByModule(moduleId);
-        if (versions) {
-          this.versions.set(versions);
-        }
+if (versions) {
+  const versionStrings = versions.map(v => v.version);
+  this.versions.set(versionStrings);
+}
+
       }
     });
 
@@ -104,28 +106,23 @@ export class EditTestcasesComponent {
     return this.form.get('attributes') as FormArray;
   }
 
-  loadTestCases(moduleId: string): void {
-    const modules = this.testCaseService.getModules();
-    if (!modules) return;
-
-    const module = modules.find(m => m.id === moduleId);
-    if (!module) {
-      console.error(`Module ${moduleId} not found`);
-      this.testCases.set([]);
-      return;
-    }
-
-    const allTestCases = this.testCaseService.getTestCasesByModule(moduleId);
-    if (!allTestCases) {
-      this.testCases.set([]);
-      return;
-    }
-
-    const versions = [...new Set(allTestCases.map(tc => tc.version))].sort();
-    this.versions.set(versions);
-    this.testCases.set(allTestCases);
-    this.applyFilters();
+ // In edit-testcases.component.ts
+loadTestCases(moduleId: string): void {
+  const module = this.testCaseService.getModules().find(m => m.id === moduleId);
+  if (!module) {
+    console.error(`Module ${moduleId} not found`);
+    this.testCases.set([]);
+    return;
   }
+
+  // Get versions for the product that this module belongs to
+  const versions = this.testCaseService.getVersionStringsByProduct(module.productId);
+  this.versions.set(versions);
+
+  const allTestCases = this.testCaseService.getTestCasesByModule(moduleId);
+  this.testCases.set(allTestCases || []);
+  this.applyFilters();
+}
 
   getUniqueAttributeNames(): string[] {
     const attributeNames = new Set<string>();
@@ -194,15 +191,19 @@ export class EditTestcasesComponent {
   }
 
   openForm(): void {
-    this.form.reset({
-      moduleId: this.selectedModule(),
-      version: 'v1.0',
-      result: 'Pending'
-    });
-    this.attributes.clear();
-    this.isEditing.set(true);
-  }
+  const latestVersion = this.versions().length > 0 
+    ? this.versions()[this.versions().length - 1] 
+    : 'v1.0';
 
+  this.form.reset({
+    moduleId: this.selectedModule(),
+    version: latestVersion,  // Set to latest version by default
+    result: 'Pending'
+  });
+  
+  this.attributes.clear();
+  this.isEditing.set(true);
+}
   startEditing(testCase: TestCase): void {
     this.form.patchValue({
       id: testCase.id || '',

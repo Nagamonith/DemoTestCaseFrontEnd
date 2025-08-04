@@ -139,22 +139,17 @@
     <form [formGroup]="form" (ngSubmit)="saveTestCase()" class="test-case-form">
       <h3>{{ form.value.id ? 'Edit' : 'Add' }} Test Case</h3>
 
-      <div class="form-group">
-        <label>Module:</label>
-        <div class="readonly-value">{{ getModuleName(selectedModule()) }}</div>
-      </div>
-
-      <div class="form-group">
-        <label>Version:</label>
-        <select formControlName="version">
-          <option *ngFor="let version of versions()" [value]="version">
-            {{ version }}
-          </option>
-        </select>
-        <div *ngIf="form.get('version')?.invalid && form.get('version')?.touched" class="error-message">
-          Version is required
-        </div>
-      </div>
+   <div class="form-group">
+  <label>Version:</label>
+  <select formControlName="version">
+    <option *ngFor="let version of versions()" [value]="version">
+      {{ version }} 
+    </option>
+  </select>
+  <div *ngIf="form.get('version')?.invalid && form.get('version')?.touched" class="error-message">
+    Version is required
+  </div>
+</div>
 
       <div class="form-group">
         <label>Test Case ID:</label>

@@ -62,63 +62,77 @@ export class AddTestcasesComponent implements OnInit {
     this.resetForms();
   }
 
-  addNewVersion(): void {
-    if (!this.newVersionName.trim()) {
-      alert('Version name is required');
-      return;
-    }
-
-    if (!this.selectedModule()) {
-      alert('Please select a module first');
-      return;
-    }
-
-    if (this.versions().includes(this.newVersionName)) {
-      alert('Version already exists');
-      return;
-    }
-
-    this.testCaseService.addVersion(this.selectedModule()!, this.newVersionName);
-    this.selectedVersion.set(this.newVersionName);
-    this.resetForms();
+addNewVersion(): void {
+  if (!this.newVersionName.trim()) {
+    alert('Version name is required');
+    return;
   }
 
-  exportToExcel(): void {
-    if (!this.selectedModule()) {
-      alert('Please select a module first');
-      return;
-    }
-
-    const module = this.modules().find(m => m.id === this.selectedModule());
-    if (!module) return;
-
-    const wb = XLSX.utils.book_new();
-    const versions = this.versions();
-
-    versions.forEach(version => {
-      const testCases = this.testCaseService
-        .getTestCasesByModuleAndVersion(this.selectedModule()!, version)
-        .map(tc => ({
-          'Sl.No': tc.slNo,
-          'Test Case ID': tc.testCaseId,
-          'Use Case': tc.useCase,
-          'Scenario': tc.scenario,
-          'Steps': tc.steps,
-          'Expected': tc.expected,
-          ...tc.attributes.reduce((acc, attr) => {
-            acc[attr.key] = attr.value;
-            return acc;
-          }, {} as Record<string, string>)
-        }));
-
-      if (testCases.length > 0) {
-        const ws = XLSX.utils.json_to_sheet(testCases);
-        XLSX.utils.book_append_sheet(wb, ws, version);
-      }
-    });
-
-    XLSX.writeFile(wb, `${module.name.replace(/\s+/g, '_')}_Test_Cases.xlsx`);
+  if (!this.selectedModule()) {
+    alert('Please select a module first');
+    return;
   }
+
+  // Check if version exists by string comparison
+  const versionStrings = this.testCaseService.getVersionStringsByProduct(
+    this.modules().find(m => m.id === this.selectedModule())?.productId || ''
+  );
+
+  if (versionStrings.includes(this.newVersionName)) {
+    alert('Version already exists');
+    return;
+  }
+
+  // Add the version and get the created ProductVersion
+  const productVersion = this.testCaseService.addVersionToProduct(
+    this.modules().find(m => m.id === this.selectedModule())?.productId || '',
+    this.newVersionName
+  );
+
+  // Add initial test case for the new version
+  this.testCaseService.addVersion(this.selectedModule()!, productVersion.version);
+  
+  this.selectedVersion.set(productVersion.version);
+  this.resetForms();
+}
+ exportToExcel(): void {
+  if (!this.selectedModule()) {
+    alert('Please select a module first');
+    return;
+  }
+
+  const module = this.modules().find(m => m.id === this.selectedModule());
+  if (!module) return;
+
+  const wb = XLSX.utils.book_new();
+  
+  // Get version strings, not ProductVersion objects
+  const versionStrings = this.testCaseService.getVersionStringsByProduct(module.productId);
+
+  versionStrings.forEach(version => {
+    const testCases = this.testCaseService
+      .getTestCasesByModuleAndVersion(this.selectedModule()!, version)
+      .map(tc => ({
+        'Sl.No': tc.slNo,
+        'Test Case ID': tc.testCaseId,
+        'Use Case': tc.useCase,
+        'Scenario': tc.scenario,
+        'Steps': tc.steps,
+        'Expected': tc.expected,
+        ...tc.attributes.reduce((acc, attr) => {
+          acc[attr.key] = attr.value;
+          return acc;
+        }, {} as Record<string, string>)
+      }));
+
+    if (testCases.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(testCases);
+      XLSX.utils.book_append_sheet(wb, ws, version);
+    }
+  });
+
+  XLSX.writeFile(wb, `${module.name.replace(/\s+/g, '_')}_Test_Cases.xlsx`);
+}
 
   private resetForms(): void {
     this.showAddModuleForm = false;

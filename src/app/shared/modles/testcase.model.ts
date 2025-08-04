@@ -2,7 +2,7 @@ export interface TestCaseAttribute {
   key: string;
   value: string;
 }
-
+import { TestCaseResult } from './result-types.model';
 export interface TestCase {
   id: string;
   slNo: number;
@@ -13,7 +13,7 @@ export interface TestCase {
   scenario: string;
   steps: string;
   expected: string;
-  result?: 'Pass' | 'Fail' | 'Pending' | 'Blocked';
+  result?: TestCaseResult;
   actual?: string;
   remarks?: string;
   attributes: TestCaseAttribute[];

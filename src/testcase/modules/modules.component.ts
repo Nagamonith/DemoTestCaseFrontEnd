@@ -388,7 +388,10 @@ ngOnInit(): void {
     if (!this.modules().some(m => m.id === id)) return;
 
     this.selectedModule.set(id);
-    this.availableVersions = this.testCaseService.getVersionsByModule(id);
+    this.availableVersions = this.testCaseService
+  .getVersionsByModule(id)
+  .map(v => v.version);
+
     
     if (this.availableVersions.length > 0) {
       this.selectedVersion = this.availableVersions[0];

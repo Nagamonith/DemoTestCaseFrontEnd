@@ -1,6 +1,6 @@
 // test-suite.service.ts
 import { Injectable, signal } from '@angular/core';
-import { TestSuite } from 'src/app/shared/modles/test-suite.model';
+import { TestCaseRef, TestSuite } from 'src/app/shared/modles/test-suite.model';
 import { DUMMY_TEST_SUITES} from 'src/app/shared/data/ummy-test-suites'
 import { TestCase } from 'src/app/shared/data/dummy-testcases';
 import { TestCaseService } from './test-case.service';
@@ -67,28 +67,24 @@ export class TestSuiteService {
     }
     return false;
   }
+addTestCaseToSuite(suiteId: string, testCaseRef: TestCaseRef): boolean {
+  const suite = this.getTestSuiteById(suiteId);
+  if (!suite) return false;
 
-  addTestCaseToSuite(suiteId: string, testCaseRef: { testCaseId: string; moduleId: string; version: string }): boolean {
-    const suite = this.getTestSuiteById(suiteId);
-    if (!suite) return false;
-
-    // Check if test case already exists in suite
-    if (suite.testCases.some(tc => 
-      tc.testCaseId === testCaseRef.testCaseId && 
-      tc.moduleId === testCaseRef.moduleId
-    )) {
-      return false;
-    }
-
-    this.testSuites.update(current => 
-      current.map(s => s.id === suiteId ? {
-        ...s,
-        testCases: [...s.testCases, testCaseRef],
-        updatedAt: new Date()
-      } : s)
-    );
-    return true;
+  // Check if test case already exists in suite
+  if (suite.testCases.some(tc => tc.id === testCaseRef.id)) {
+    return false;
   }
+
+  this.testSuites.update(current => 
+    current.map(s => s.id === suiteId ? {
+      ...s,
+      testCases: [...s.testCases, testCaseRef],
+      updatedAt: new Date()
+    } : s)
+  );
+  return true;
+}
 
   removeTestCaseFromSuite(suiteId: string, testCaseId: string): boolean {
     const suite = this.getTestSuiteById(suiteId);

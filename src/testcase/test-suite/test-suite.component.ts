@@ -150,66 +150,66 @@ export class TestSuiteComponent {
   }
 
   // Save test suite (create or update)
-  saveTestSuite(): void {
-    if (!this.suiteName.trim()) {
-      this.showAlertMessage('Test suite name is required', 'error');
-      return;
-    }
+  // Save test suite (create or update)
+saveTestSuite(): void {
+  if (!this.suiteName.trim()) {
+    this.showAlertMessage('Test suite name is required', 'error');
+    return;
+  }
 
-    if (this.mode() === 'add') {
-      const newSuite = this.testSuiteService.addTestSuite(
-        this.suiteName,
-        this.suiteDescription
-      );
+  if (this.mode() === 'add') {
+    const newSuite = this.testSuiteService.addTestSuite(
+      this.suiteName,
+      this.suiteDescription
+    );
 
+    this.selectedTestCases().forEach(testCase => {
+      this.testSuiteService.addTestCaseToSuite(newSuite.id, {
+        id: testCase.id,
+        testCaseId: testCase.testCaseId,
+        moduleId: testCase.moduleId,
+        version: testCase.version
+      });
+    });
+
+    this.showAlertMessage('Test suite created successfully', 'success');
+  } else if (this.mode() === 'edit') {
+    const suiteId = this.selectedSuiteId();
+    const updated = this.testSuiteService.updateTestSuite(
+      suiteId,
+      {
+        name: this.suiteName,
+        description: this.suiteDescription
+      }
+    );
+
+    if (updated) {
+      const existingSuite = this.testSuiteService.getTestSuiteById(suiteId);
+      
+      if (existingSuite) {
+        // Remove all existing test cases by their IDs
+        existingSuite.testCases.forEach(tc => {
+          this.testSuiteService.removeTestCaseFromSuite(suiteId, tc.id);
+        });
+      }
+
+      // Add the selected test cases with complete references
       this.selectedTestCases().forEach(testCase => {
-        this.testSuiteService.addTestCaseToSuite(newSuite.id, {
+        this.testSuiteService.addTestCaseToSuite(suiteId, {  // Use suiteId instead of newSuite.id
+          id: testCase.id,
           testCaseId: testCase.testCaseId,
           moduleId: testCase.moduleId,
           version: testCase.version
         });
       });
 
-      this.showAlertMessage('Test suite created successfully', 'success');
-    } else if (this.mode() === 'edit') {
-      const updated = this.testSuiteService.updateTestSuite(
-        this.selectedSuiteId(),
-        {
-          name: this.suiteName,
-          description: this.suiteDescription
-        }
-      );
-
-      if (updated) {
-        const suiteId = this.selectedSuiteId();
-        
-        if (suiteId !== undefined) {
-          const existingSuite = this.testSuiteService.getTestSuiteById(suiteId);
-          
-          if (existingSuite) {
-            existingSuite.testCases.forEach(tc => {
-              if (tc.testCaseId) {
-                this.testSuiteService.removeTestCaseFromSuite(suiteId, tc.testCaseId);
-              }
-            });
-          }
-        }
-
-        this.selectedTestCases().forEach(testCase => {
-          this.testSuiteService.addTestCaseToSuite(this.selectedSuiteId(), {
-            testCaseId: testCase.testCaseId,
-            moduleId: testCase.moduleId,
-            version: testCase.version
-          });
-        });
-
-        this.showAlertMessage('Test suite updated successfully', 'success');
-      }
+      this.showAlertMessage('Test suite updated successfully', 'success');
     }
-
-    this.loadTestSuites();
-    setTimeout(() => this.cancelEdit(), 1000);
   }
+
+  this.loadTestSuites();
+  setTimeout(() => this.cancelEdit(), 1000);
+}
 
   // Delete
   confirmDeleteSuite(suiteId: string): void {

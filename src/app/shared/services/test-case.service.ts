@@ -1,6 +1,6 @@
 // test-case.service.ts
 import { Injectable, signal, effect, inject } from '@angular/core';
-import { ProductVersion } from '../modles/version.model';
+import { generateVersionId, getVersionStrings, ProductVersion, validateVersionFormat } from '../modles/version.model';
 import { TestCase } from '../modles/testcase.model';
 import { ProductModule } from '../modles/module.model';
 import { DUMMY_TEST_CASES } from '../data/dummy-testcases';
@@ -34,43 +34,97 @@ export class TestCaseService {
     });
   }
 
-  private initializeData(): void {
-    try {
-      const savedTestCases = localStorage.getItem('testCases');
-      const savedModules = localStorage.getItem('productModules');
-      const savedVersions = localStorage.getItem('productVersions');
+private initializeData(): void {
+  try {
+    const savedTestCases = localStorage.getItem('testCases');
+    const savedModules = localStorage.getItem('productModules');
+    const savedVersions = localStorage.getItem('productVersions');
 
-      if (savedTestCases && savedModules && savedVersions) {
-        this.testCases.set(JSON.parse(savedTestCases));
-        this.productModules.set(JSON.parse(savedModules));
-        this.productVersions.set(JSON.parse(savedVersions));
-        console.log('Data loaded from localStorage');
-        this.validateDataIntegrity();
-        return;
-      }
-    } catch (e) {
-      console.error('Failed to parse saved data', e);
-      localStorage.clear();
+    if (savedTestCases && savedModules && savedVersions) {
+      this.testCases.set(JSON.parse(savedTestCases));
+      this.productModules.set(JSON.parse(savedModules));
+      this.productVersions.set(JSON.parse(savedVersions));
+      console.log('Data loaded from localStorage');
+      this.validateDataIntegrity();
+      return;
     }
-
-    console.log('Initializing with dummy data');
-    this.resetToDummyData();
+  } catch (e) {
+    console.error('Failed to parse saved data', e);
+    localStorage.clear();
   }
 
-  private initializeVersions(): void {
-    const versionsMap = new Map<string, ProductVersion>();
-    this.testCases().forEach(tc => {
-      const module = this.productModules().find(m => m.id === tc.moduleId);
-      if (module) {
-        versionsMap.set(`${module.productId}-${tc.version}`, {
-          id: `ver-${tc.version}-${module.productId}`,
+  console.log('Initializing with dummy data');
+  this.resetToDummyData();
+  this.initializeVersions(); // Add this line
+}
+
+private syncVersions(): void {
+  this.initializeVersions();
+  // Trigger change detection if needed
+  this.productVersions.update(v => [...v]);
+}
+
+private initializeVersions(): void {
+  const versionsMap = new Map<string, ProductVersion>();
+  
+  // 1. Get versions from test cases
+  this.testCases().forEach(tc => {
+    const module = this.productModules().find(m => m.id === tc.moduleId);
+    if (module) {
+      const versionKey = `${module.productId}-${tc.version}`;
+      if (!versionsMap.has(versionKey)) {
+        versionsMap.set(versionKey, {
+          id: generateVersionId(module.productId, tc.version),
           productId: module.productId,
-          version: tc.version
+          version: tc.version,
+          createdAt: new Date()
         });
       }
-    });
-    this.productVersions.set(Array.from(versionsMap.values()));
-  }
+    }
+  });
+
+  // 2. Get versions from modules (in case modules have versions not in test cases)
+  this.productModules().forEach(module => {
+    if (module.version) {
+      const versionKey = `${module.productId}-${module.version}`;
+      if (!versionsMap.has(versionKey)) {
+        versionsMap.set(versionKey, {
+          id: generateVersionId(module.productId, module.version),
+          productId: module.productId,
+          version: module.version,
+          createdAt: new Date()
+        });
+      }
+    }
+  });
+
+  // 3. Ensure at least one version exists for each product
+  const products = new Set(this.productModules().map(m => m.productId));
+  products.forEach(productId => {
+    const hasVersion = Array.from(versionsMap.values()).some(v => v.productId === productId);
+    if (!hasVersion) {
+      const defaultVersion = 'v1.0';
+      versionsMap.set(`${productId}-${defaultVersion}`, {
+        id: generateVersionId(productId, defaultVersion),
+        productId: productId,
+        version: defaultVersion,
+        createdAt: new Date()
+      });
+    }
+  });
+
+  this.productVersions.set(Array.from(versionsMap.values()));
+}
+
+  private normalizeProductId(productId: string): string {
+  return productId.startsWith('p') ? productId.slice(1) : productId;
+}
+private hasTestCasesForModuleVersion(moduleId: string, version: string): boolean {
+  return this.testCases().some(tc => 
+    tc.moduleId === moduleId && tc.version === version
+  );
+}
+
 
   // ========== Module Management ==========
   getModules(): ProductModule[] {
@@ -96,24 +150,20 @@ async addModule(name: string, productId: string): Promise<string> {
   if (!productId) throw new Error('Product ID is required');
 
   try {
-    // Get the products array from the Observable
-    const products = await lastValueFrom(
-      this.productService.getProducts().pipe(
-        take(1),
-        first()
-      )
-    );
-
     // Verify product exists
-    const productExists = products?.some(p => p.id === productId);
-    if (!productExists) {
+    const products = await lastValueFrom(
+      this.productService.getProducts().pipe(take(1), first())
+    );
+    if (!products?.some(p => p.id === productId)) {
       throw new Error(`Product with ID ${productId} not found`);
     }
 
-    const newId = `mod${Date.now()}`;
-    const versions = this.getVersionsByProduct(productId);
-    const latestVersion = versions[versions.length - 1] || 'v1.0';
+    // Get version strings (not ProductVersion objects)
+    const versionStrings = this.getVersionStringsByProduct(productId);
+    const latestVersion = versionStrings[versionStrings.length - 1] || 'v1.0';
 
+    // Create new module
+    const newId = `mod${Date.now()}`;
     const newModule: ProductModule = {
       id: newId,
       productId,
@@ -128,7 +178,7 @@ async addModule(name: string, productId: string): Promise<string> {
     this.addTestCase({
       slNo: 1,
       moduleId: newId,
-      version: latestVersion,
+      version: latestVersion,  // Using the string version
       testCaseId: `TC${this.generateTestCaseId()}`,
       useCase: 'Initial test case for new module',
       scenario: 'Initial scenario',
@@ -144,8 +194,23 @@ async addModule(name: string, productId: string): Promise<string> {
     return newId;
   } catch (error) {
     console.error('Error in addModule:', error);
-    throw error; // Re-throw to let calling code handle it
+    throw error;
   }
+}
+private ensureVersion(productId: string, version: string): string {
+  const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+  
+  // Check if version exists
+  const exists = this.productVersions().some(v => 
+    v.productId === normalized && v.version === version
+  );
+  
+  if (!exists) {
+    // Add if doesn't exist
+    this.addVersionToProduct(productId, version);
+  }
+  
+  return version;
 }
 
   deleteModule(moduleId: string): boolean {
@@ -159,51 +224,70 @@ async addModule(name: string, productId: string): Promise<string> {
   }
 
   // ========== Version Management ==========
-  getVersionsByProduct(productId: string): string[] {
-    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
-    return this.productVersions()
-      .filter(v => v.productId === normalized)
-      .map(v => v.version)
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }
+getVersionsByProduct(productId: string): ProductVersion[] {
+  const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+  return this.productVersions()
+    .filter(v => v.productId === normalized)
+    .sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }));
+}
+getVersionStringsByProduct(productId: string): string[] {
+  const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+  return this.productVersions()
+    .filter(v => v.productId === normalized)
+    .map(v => v.version)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
 
   hasVersion(productId: string, version: string): boolean {
-    return this.getVersionsByProduct(productId).includes(version);
+  const normalized = this.normalizeProductId(productId);
+  return this.productVersions().some(v => 
+    v.productId === normalized && v.version === version
+  );
+}
+
+// Ensure consistent version handling
+addVersionToProduct(productId: string, version: string): ProductVersion {
+  if (!/^v\d+(\.\d+)*$/.test(version)) {
+    throw new Error('Version must be in format vX.Y');
   }
 
-  addVersionToProduct(productId: string, version: string): void {
-    if (!/^v\d+(\.\d+)*$/.test(version)) throw new Error('Version must be in format vX.Y');
-    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+  const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
+  const existing = this.productVersions().find(v => 
+    v.productId === normalized && v.version === version
+  );
 
-    if (!this.productVersions().some(v => v.productId === normalized && v.version === version)) {
-      this.productVersions.update(curr => [...curr, {
-        id: `ver-${version}-${normalized}`,
-        productId: normalized,
-        version
-      }]);
-    }
-  }
+  if (existing) return existing;
 
+  const newVersion: ProductVersion = {
+    id: `ver-${version}-${normalized}`,
+    productId: normalized,
+    version,
+    createdAt: new Date()
+  };
+
+  this.productVersions.update(curr => [...curr, newVersion]);
+  return newVersion;
+}
   removeVersionFromProduct(productId: string, version: string): boolean {
-    const normalized = productId.startsWith('p') ? productId.slice(1) : productId;
-    const updated = this.productVersions().filter(v =>
-      !(v.productId === normalized && v.version === version)
-    );
+  const normalized = this.normalizeProductId(productId);
+  const updated = this.productVersions().filter(v =>
+    !(v.productId === normalized && v.version === version)
+  );
 
-    if (updated.length !== this.productVersions().length) {
-      this.productVersions.set(updated);
-      return true;
-    }
-    return false;
+  if (updated.length !== this.productVersions().length) {
+    this.productVersions.set(updated);
+    return true;
   }
+  return false;
+}
 
-  getVersionsByModule(moduleId: string): string[] {
-    const versions = new Set<string>();
-    this.testCases()
-      .filter(tc => tc.moduleId === moduleId)
-      .forEach(tc => versions.add(tc.version));
-    return Array.from(versions).sort();
-  }
+getVersionsByModule(moduleId: string): ProductVersion[] {
+  const module = this.productModules().find(m => m.id === moduleId);
+  if (!module) return [];
+
+  return this.getVersionsByProduct(module.productId)
+    .filter(v => this.hasTestCasesForModuleVersion(moduleId, v.version));
+}
 
   addVersion(moduleId: string, version: string): TestCase {
     const module = this.productModules().find(m => m.id === moduleId);
@@ -240,11 +324,11 @@ async addModule(name: string, productId: string): Promise<string> {
       .sort((a, b) => a.slNo - b.slNo);
   }
 
-  getTestCasesByModuleAndVersion(moduleId: string, version: string): TestCase[] {
-    return this.testCases()
-      .filter(tc => tc.moduleId === moduleId && tc.version === version)
-      .sort((a, b) => a.slNo - b.slNo);
-  }
+getTestCasesByModuleAndVersion(moduleId: string, version: string): TestCase[] {
+  return this.testCases()
+    .filter(tc => tc.moduleId === moduleId && tc.version === version)
+    .sort((a, b) => a.slNo - b.slNo);
+}
 
   addTestCase(testCase: Omit<TestCase, 'id'>): TestCase {
     if (!this.productModules().some(m => m.id === testCase.moduleId)) {
@@ -411,4 +495,5 @@ async addModule(name: string, productId: string): Promise<string> {
       console.warn('Modules without test cases:', emptyModules);
     }
   }
+
 }

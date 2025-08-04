@@ -78,16 +78,20 @@ export class ExtraAddsComponent implements OnInit {
   ];
 
   modules = signal<Module[]>([]);
-  versionsByModule = computed(() => {
-    const result: Record<string, string[]> = {};
-    this.modules().forEach(mod => {
-      const versions = this.testCaseService.getVersionsByModule(mod.id);
-      if (versions) {
-        result[mod.id] = versions;
-      }
-    });
-    return result;
+versionsByModule = computed(() => {
+  const result: Record<string, string[]> = {};
+  this.modules().forEach(mod => {
+    const versions = this.testCaseService.getVersionsByModule(mod.id);
+    result[mod.id] = versions ? versions.map(v => v.version) : [];
   });
+  return result;
+});
+productVersions = computed(() => {
+  if (!this.selectedProductId()) return [];
+  const versions = this.testCaseService.getVersionsByProduct(this.selectedProductId());
+  return versions ? versions.map(v => v.version) : [];
+});
+
 
   newProductVersion = '';
   versionExists = false;
@@ -261,11 +265,14 @@ export class ExtraAddsComponent implements OnInit {
       this.showAlertMessage('No product selected', 'warning');
       return;
     }
-    const existingVersions = this.testCaseService.getVersionsByProduct(productId);
-    if (existingVersions && existingVersions.includes(version)) {
-      this.showAlertMessage('This version already exists for the selected product', 'warning');
-      return;
-    }
+   const existingVersions = this.testCaseService.getVersionsByProduct(productId);
+const versionStrings = existingVersions?.map(v => v.version) || [];
+
+if (versionStrings.includes(version)) {
+  this.showAlertMessage('This version already exists for the selected product', 'warning');
+  return;
+}
+
     this.testCaseService.addVersionToProduct(productId, version);
     this.showAlertMessage('Version added successfully', 'success');
     this.resetVersionForm();
@@ -276,10 +283,11 @@ export class ExtraAddsComponent implements OnInit {
     this.showAddVersionForm = false;
   }
 
-  getProductVersions(productId: string): string[] {
-    const versions = this.testCaseService.getVersionsByProduct(productId);
-    return versions || [];
-  }
+ getProductVersions(productId: string): string[] {
+  const versions = this.testCaseService.getVersionsByProduct(productId);
+  return versions ? versions.map(v => v.version) : [];
+}
+
 
   handleToggleModules() {
     if (this.products().length === 0) {
@@ -365,25 +373,52 @@ export class ExtraAddsComponent implements OnInit {
     }
   }
 
-  addProductVersion(): void {
-    const version = this.newProductVersion.trim();
-    if (!version) return;
-
-    const productId = this.selectedProductId();
-    if (!productId) return;
-
-    const versions = this.testCaseService.getVersionsByProduct(productId);
-    if (versions && versions.includes(version)) {
-      this.versionExists = true;
-      return;
-    }
-
-    this.versionExists = false;
-    this.testCaseService.addVersionToProduct(productId, version);
-    this.newProductVersion = '';
-    this.showAlertMessage('Version added successfully', 'success');
+addProductVersion(): void {
+  // Trim and validate version input
+  const version = this.newProductVersion.trim();
+  if (!version) {
+    this.showAlertMessage('Version name cannot be empty', 'warning');
+    return;
   }
 
+  // Validate version format (vX.Y or vX.Y.Z)
+  if (!/^v\d+(\.\d+)*$/.test(version)) {
+    this.showAlertMessage('Version must be in format vX.Y or vX.Y.Z', 'warning');
+    return;
+  }
+
+  // Check product selection
+  const productId = this.selectedProductId();
+  if (!productId) {
+    this.showAlertMessage('No product selected', 'error');
+    return;
+  }
+
+  // Check for existing version
+  const existingVersions = this.testCaseService.getVersionsByProduct(productId);
+  if (existingVersions?.some(v => v.version === version)) {
+    this.versionExists = true;
+    this.showAlertMessage(`Version ${version} already exists for this product`, 'warning');
+    return;
+  }
+
+  try {
+    // Add the version
+    this.testCaseService.addVersionToProduct(productId, version);
+    
+    // Reset form and update UI
+    this.newProductVersion = '';
+    this.versionExists = false;
+    
+    // Force UI update
+    this.cdr.detectChanges();
+    
+    this.showAlertMessage(`Version ${version} added successfully`, 'success');
+  } catch (error) {
+    console.error('Failed to add version:', error);
+    this.showAlertMessage('Failed to add version. Please try again.', 'error');
+  }
+}
   confirmRemoveProductVersion(version: string): void {
     this.pendingActionData = { type: 'version', id: version, productId: this.selectedProductId() };
     this.showConfirmAlert('Are you sure you want to remove this version?');
