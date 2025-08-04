@@ -1,13 +1,13 @@
-// src/app/tester/import-excel/import-excel.component.ts
-import { Component, signal } from '@angular/core';
+// import-excel.component.ts
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as XLSX from 'xlsx';
-import { RouterModule, Router } from '@angular/router';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-import-excel',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule],
   templateUrl: './import-excel.component.html',
   styleUrls: ['./import-excel.component.css']
 })
@@ -17,8 +17,21 @@ export class ImportExcelComponent {
   sheetData = signal<Record<string, any[]> | null>(null);
   isLoading = signal<boolean>(false);
   errorMessage = signal<string>('');
+  currentProduct = signal<{ id: string, name: string } | null>(null);
 
-  constructor(private router: Router) {}
+  private router = inject(Router);
+
+  constructor() {
+    const navigation = this.router.getCurrentNavigation();
+    const state = navigation?.extras.state as { productId: string, productName: string };
+
+    if (state) {
+      this.currentProduct.set({
+        id: state.productId,
+        name: state.productName
+      });
+    }
+  }
 
   handleFileInput(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -59,57 +72,48 @@ export class ImportExcelComponent {
     reader.readAsBinaryString(file);
   }
 
-  onCancelSheet(sheetName: string) {
+  onSelectSheet(sheetName: string) {
+    const product = this.currentProduct();
+    const data = this.sheetData();
+
+    if (!product) {
+      this.errorMessage.set('No product selected. Please select a product first.');
+      return;
+    }
+
+    if (!data || !data[sheetName]) {
+      this.errorMessage.set('Selected sheet has no data or sheet not found');
+      return;
+    }
+
+    const firstRow = data[sheetName][0];
+    const navigationData = {
+      sheetColumns: Object.keys(firstRow),
+      sheetData: data[sheetName],
+      productId: product.id,
+      productName: product.name
+    };
+
+    this.router.navigate(['/tester/mapping', encodeURIComponent(sheetName)], {
+      state: navigationData
+    }).catch(error => {
+      console.error('Navigation error:', error);
+      this.errorMessage.set('Failed to navigate. Please try again.');
+    });
+  }
+   saveData() {
+    if (!this.sheetData()) {
+      this.errorMessage.set('No data to save');
+      return;
+    }
+    console.log('Final sheet data:', this.sheetData());
+    alert('Data saved successfully (check console)');
+  }  onCancelSheet(sheetName: string) {
     const updated = this.sheetNames().filter((name) => name !== sheetName);
     this.sheetNames.set(updated);
 
     const updatedData = { ...this.sheetData() };
     delete updatedData[sheetName];
     this.sheetData.set(Object.keys(updatedData).length ? updatedData : null);
-  }
-
-onSelectSheet(sheetName: string) {
-  // 1. First validate we have data
-  if (!this.sheetData() || !this.sheetData()![sheetName] || this.sheetData()![sheetName].length === 0) {
-    this.errorMessage.set('Selected sheet has no data or sheet not found');
-    return;
-  }
-
-  // 2. Get the first row to extract column headers
-  const firstRow = this.sheetData()![sheetName][0];
-  if (!firstRow || typeof firstRow !== 'object') {
-    this.errorMessage.set('Sheet data format is invalid');
-    return;
-  }
-
-  // 3. Prepare navigation data
-  const navigationData = {
-    sheetColumns: Object.keys(firstRow),
-    sheetData: this.sheetData()![sheetName]
-  };
-
-  console.log('Navigating with:', { sheetName, navigationData }); // Debug log
-
-  // 4. Navigate with error handling
-  this.router.navigate(['/tester/mapping', sheetName], {
-    state: navigationData
-  }).then(navigationResult => {
-    if (!navigationResult) {
-      console.error('Navigation failed silently');
-      this.errorMessage.set('Failed to open mapping page. Please try again.');
-    }
-  }).catch(error => {
-    console.error('Navigation error:', error);
-    this.errorMessage.set(`Navigation error: ${error.message}`);
-  });
-}
-
-  saveData() {
-    if (!this.sheetData()) {
-      this.errorMessage.set('No data to save');
-      return;
-    }
-    console.log(' Final sheet data:', this.sheetData());
-    alert('Data saved successfully (check console)');
   }
 }

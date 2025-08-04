@@ -65,27 +65,30 @@ export const routes: Routes = [
         component: TesterDashboardComponent,
         children: [
           { path: 'add-testcases', component: AddTestcasesComponent },
-         {
-  path: 'edit-testcases/:moduleId',
-  loadComponent: () =>
-    import('../testcase/edit-testcases/edit-testcases.component').then(
-      m => m.EditTestcasesComponent
-    ),
-  // This ensures query parameters are preserved when navigating
-  runGuardsAndResolvers: 'always'
-},
-          { path: 'import-excel', component: ImportExcelComponent },
-
-          // ✅ Existing module view (no param)
-          { path: 'modules', component: ModulesComponent },
-
-          // ✅ New route with moduleId param for clicking from Summary
-          { path: 'modules/:moduleId', component: ModulesComponent },
-
+          {
+            path: 'edit-testcases/:moduleId',
+            loadComponent: () =>
+              import('../testcase/edit-testcases/edit-testcases.component').then(
+                m => m.EditTestcasesComponent
+              ),
+            runGuardsAndResolvers: 'always'
+          },
+          {
+            path: 'import-excel',  // Changed from 'tester/import-excel' to just 'import-excel'
+            loadComponent: () => 
+              import('../testcase/import-excel/import-excel.component').then(
+                m => m.ImportExcelComponent
+              )
+          },
+          { 
+            path: 'modules', 
+            component: ModulesComponent,
+            children: [
+              { path: ':moduleId', component: ModulesComponent }
+            ]
+          },
           { path: 'results', component: ResultsComponent },
           { path: 'summary', component: SummaryComponent },
-
-          // ✅ New extra-adds route moved outside of add-testcases
           {
             path: 'extra-adds',
             loadComponent: () =>
@@ -93,36 +96,37 @@ export const routes: Routes = [
                 m => m.ExtraAddsComponent
               )
           },
-
           { path: '', redirectTo: 'add-testcases', pathMatch: 'full' },
- {
-    path: 'view-testcase/:testCaseId',
-    loadComponent: () =>
-      import('../testcase/test-case-viewer/test-case-viewer.component')
-        .then(m => m.TestCaseViewerComponent)
-  },
-  {
-    path: 'mapping/:sheetName',
-    loadComponent: () =>
-      import('../testcase/sheet-matching/sheet-matching.component').then(
-        (m) => m.SheetMatchingComponent
-      ),
-  },
-{
-  path: 'automation-result',
-  loadComponent: () =>
-    import('../testcase/automation-result/automation-result.component')
-      .then(m => m.AutomationResultComponent)
-},
-{ path: 'test-suite', loadComponent: () => import('../testcase/test-suite/test-suite.component').then(m => m.TestSuiteComponent) },
-{
-  path: 'test-runs',
-  loadComponent: () =>
-    import('../testcase/test-run/test-run.component').then(m => m.TestRunComponent)
-},
-
-
-
+          {
+            path: 'view-testcase/:testCaseId',
+            loadComponent: () =>
+              import('../testcase/test-case-viewer/test-case-viewer.component')
+                .then(m => m.TestCaseViewerComponent)
+          },
+          {
+            path: 'mapping/:sheetName',
+            loadComponent: () => 
+              import('../testcase/sheet-matching/sheet-matching.component')
+                .then(m => m.SheetMatchingComponent)
+          },
+          {
+            path: 'automation-result',
+            loadComponent: () =>
+              import('../testcase/automation-result/automation-result.component')
+                .then(m => m.AutomationResultComponent)
+          },
+          { 
+            path: 'test-suite', 
+            loadComponent: () => 
+              import('../testcase/test-suite/test-suite.component')
+                .then(m => m.TestSuiteComponent) 
+          },
+          {
+            path: 'test-runs',
+            loadComponent: () =>
+              import('../testcase/test-run/test-run.component')
+                .then(m => m.TestRunComponent)
+          }
         ]
       }
     ]

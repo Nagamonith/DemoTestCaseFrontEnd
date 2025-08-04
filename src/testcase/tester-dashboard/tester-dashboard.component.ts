@@ -2,7 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { ProductService, Product } from 'src/app/shared/services/product.service';
+// In any component file (e.g., tester-dashboard.component.ts)
+import { ProductService } from 'src/app/shared/services/product.service';
+import { Product } from 'src/app/shared/modles/product.model'; // Import from model file
 import { PageTitleService } from 'src/app/shared/services/page-title.service';
 
 @Component({

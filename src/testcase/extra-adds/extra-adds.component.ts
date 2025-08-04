@@ -9,6 +9,7 @@ import {
   faSave, faEdit, faTrash, faBoxOpen
 } from '@fortawesome/free-solid-svg-icons';
 import { AlertComponent } from "src/app/shared/alert/alert.component";
+import { Observable } from 'rxjs';
 
 interface Module {
   id: string;
@@ -80,7 +81,10 @@ export class ExtraAddsComponent implements OnInit {
   versionsByModule = computed(() => {
     const result: Record<string, string[]> = {};
     this.modules().forEach(mod => {
-      result[mod.id] = this.testCaseService.getVersionsByModule(mod.id);
+      const versions = this.testCaseService.getVersionsByModule(mod.id);
+      if (versions) {
+        result[mod.id] = versions;
+      }
     });
     return result;
   });
@@ -105,7 +109,10 @@ export class ExtraAddsComponent implements OnInit {
     }
 
     this.loadProducts();
-    this.modules.set(this.testCaseService.getModules());
+    const modules = this.testCaseService.getModules();
+    if (modules) {
+      this.modules.set(modules);
+    }
   }
 
   resetAllToggles(): void {
@@ -142,16 +149,22 @@ export class ExtraAddsComponent implements OnInit {
   }
 
   loadProducts(): void {
-    this.productService.getProducts().subscribe((products) => {
-      this.products.set(products);
-      if (!this.selectedProductId() && products.length > 0) {
-        this.selectedProductId.set(products[0].id);
+    this.productService.getProducts().subscribe({
+      next: (products: Product[]) => {
+        this.products.set(products);
+        if (!this.selectedProductId() && products.length > 0) {
+          this.selectedProductId.set(products[0].id);
+        }
+      },
+      error: (error: any) => {
+        console.error('Error loading products:', error);
       }
     });
   }
 
   getProductName(productId: string): string {
-    return this.products().find(p => p.id === productId)?.name || 'Unknown Product';
+    const product = this.products().find(p => p.id === productId);
+    return product?.name || 'Unknown Product';
   }
 
   addProduct(): void {
@@ -165,8 +178,8 @@ export class ExtraAddsComponent implements OnInit {
         this.loadProducts();
         this.showAlertMessage('Product added successfully', 'success');
       },
-      error: (err) => {
-        console.error('Failed to add product:', err);
+      error: (error: any) => {
+        console.error('Failed to add product:', error);
         this.showAlertMessage('Failed to add product. Please try again.', 'error');
       }
     });
@@ -190,8 +203,15 @@ export class ExtraAddsComponent implements OnInit {
       return;
     }
     const productId = this.selectedProductId();
+    if (!productId) {
+      this.showAlertMessage('No product selected', 'warning');
+      return;
+    }
     const newId = this.testCaseService.addModule(name, productId);
-    this.modules.set(this.testCaseService.getModules());
+    const modules = this.testCaseService.getModules();
+    if (modules) {
+      this.modules.set(modules);
+    }
     this.showAlertMessage('Module added successfully', 'success');
     this.resetModuleForm();
   }
@@ -242,7 +262,7 @@ export class ExtraAddsComponent implements OnInit {
       return;
     }
     const existingVersions = this.testCaseService.getVersionsByProduct(productId);
-    if (existingVersions.includes(version)) {
+    if (existingVersions && existingVersions.includes(version)) {
       this.showAlertMessage('This version already exists for the selected product', 'warning');
       return;
     }
@@ -257,7 +277,8 @@ export class ExtraAddsComponent implements OnInit {
   }
 
   getProductVersions(productId: string): string[] {
-    return this.testCaseService.getVersionsByProduct(productId);
+    const versions = this.testCaseService.getVersionsByProduct(productId);
+    return versions || [];
   }
 
   handleToggleModules() {
@@ -308,8 +329,8 @@ export class ExtraAddsComponent implements OnInit {
         this.loadProducts();
         this.showAlertMessage('Product updated successfully', 'success');
       },
-      error: (err) => {
-        console.error('Failed to update product:', err);
+      error: (error: any) => {
+        console.error('Failed to update product:', error);
         product.editing = true;
         this.showAlertMessage('Failed to update product. Please try again.', 'error');
       }
@@ -351,7 +372,8 @@ export class ExtraAddsComponent implements OnInit {
     const productId = this.selectedProductId();
     if (!productId) return;
 
-    if (this.testCaseService.getVersionsByProduct(productId).includes(version)) {
+    const versions = this.testCaseService.getVersionsByProduct(productId);
+    if (versions && versions.includes(version)) {
       this.versionExists = true;
       return;
     }
@@ -367,32 +389,34 @@ export class ExtraAddsComponent implements OnInit {
     this.showConfirmAlert('Are you sure you want to remove this version?');
   }
 
-  handleConfirmDelete(): void {
-    if (this.pendingActionData) {
-      if (this.pendingActionData.type === 'product') {
-        this.productService.deleteProduct(this.pendingActionData.id).subscribe({
-          next: () => {
-            this.loadProducts();
-            if (this.selectedProductId() === this.pendingActionData.id) {
-              this.selectedProductId.set('');
-            }
-            this.showAlertMessage('Product deleted successfully', 'success');
-          },
-          error: (err) => {
-            console.error('Failed to delete product:', err);
-            this.showAlertMessage('Failed to delete product. Please try again.', 'error');
-          }
-        });
-      } else if (this.pendingActionData.type === 'module') {
-        this.modules.update(mods => mods.filter(m => m.id !== this.pendingActionData.id));
-        this.showAlertMessage('Module deleted successfully', 'success');
-      } else if (this.pendingActionData.type === 'version') {
-        this.removeProductVersion(this.pendingActionData.id);
+  hhandleConfirmDelete(): void {
+  if (!this.pendingActionData) return;
+
+  if (this.pendingActionData.type === 'product') {
+    this.productService.deleteProduct(this.pendingActionData.id).subscribe({
+      next: () => {
+        this.loadProducts();
+        if (this.selectedProductId() === this.pendingActionData.id) {
+          this.selectedProductId.set('');
+        }
+        this.showAlertMessage('Product deleted successfully', 'success');
+      },
+      error: (error: any) => {
+        console.error('Failed to delete product:', error);
+        this.showAlertMessage('Failed to delete product. Please try again.', 'error');
       }
-    }
-    this.pendingActionData = null;
-    this.pendingDeleteId = null;
+    });
+  } else if (this.pendingActionData.type === 'module') {
+    this.testCaseService.deleteModule(this.pendingActionData.id);
+    this.modules.update(mods => mods.filter(m => m.id !== this.pendingActionData.id));
+    this.showAlertMessage('Module deleted successfully', 'success');
+  } else if (this.pendingActionData.type === 'version') {
+    this.removeProductVersion(this.pendingActionData.id);
   }
+
+  this.pendingActionData = null;
+  this.pendingDeleteId = null;
+}
 
   handleCancelDelete(): void {
     this.showAlert = false;

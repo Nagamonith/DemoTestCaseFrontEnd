@@ -18,7 +18,7 @@ import {
   FormControl,
 } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, ParamMap, RouterModule } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterModule } from '@angular/router';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
 import { TestCase } from 'src/app/shared/data/dummy-testcases';
 import { AutoSaveService } from 'src/app/shared/services/auto-save.service';
@@ -28,6 +28,7 @@ import { TestSuite } from 'src/app/shared/modles/test-suite.model';
 import { TestRunService } from 'src/app/shared/services/test-run.service';
 import { TestRun } from 'src/app/shared/modles/test-run.model';
 import { DomSanitizer } from '@angular/platform-browser';
+import { ProductModule } from 'src/app/shared/modles/module.model';
 
 interface Filter {
   slNo: string;
@@ -68,6 +69,7 @@ interface TestRunProgress {
 export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private testCaseService = inject(TestCaseService);
   private testSuiteService = inject(TestSuiteService);
   private testRunService = inject(TestRunService);
@@ -89,9 +91,9 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   testRunProgress: WritableSignal<TestRunProgress> = signal({ total: 0, completed: 0 });
 
   // Data signals
-  modules = this.testCaseService.getModules();
+  modules = signal<ProductModule[]>([]);
   testSuites = this.testSuiteService.getTestSuites();
-  testCasePool = this.testCaseService.getTestCases();
+  testCasePool = signal<TestCase[]>([]);
   testRuns = signal<TestRun[]>([]);
   formArray = new FormArray<FormGroup>([]);
   uploads: UploadedFile[][] = [];
@@ -143,6 +145,7 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   private boundHandleClick = this.handleDocumentClick.bind(this);
   private boundOnResize = this.onResize.bind(this);
   private boundStopResize = this.stopResize.bind(this);
+  private productId = signal<string | null>(null);
 
   viewColumns: TableColumn[] = [
     { field: 'slNo', header: 'Sl No', width: 80 },
@@ -164,25 +167,35 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     { field: 'expected', header: 'Expected', width: 200 }
   ];
 
-  ngOnInit(): void {
-    this.autoSaveService.start(() => this.onSave());
+ngOnInit(): void {
+  this.initializeData();
+  this.autoSaveService.start(() => this.onSave());
+  
+  this.route.queryParamMap.subscribe(queryParams => {
+    const productId = queryParams.get('productId');
+    this.selectedProductId.set(productId);
     
-    this.route.paramMap.subscribe((pm: ParamMap) => {
-      const modId = pm.get('moduleId');
-      const fallback = this.modules.length ? this.modules[0].id : null;
-      this.onSelectionChange(modId ?? fallback ?? '');
-    });
+    // Rest of your query param handling
+    const shouldLoadAll = queryParams.get('loadAllVersions') === 'true';
+    if (shouldLoadAll && this.selectedModule() && !this.showTestSuites) {
+      this.selectedVersion = 'all';
+      this.onVersionChange();
+    }
+  });
 
-    this.route.queryParamMap.subscribe(queryParams => {
-      const shouldLoadAll = queryParams.get('loadAllVersions') === 'true';
-      if (shouldLoadAll && this.selectedModule() && !this.showTestSuites) {
-        this.selectedVersion = 'all';
-        this.onVersionChange();
-      }
-    });
+  this.route.paramMap.subscribe((pm: ParamMap) => {
+    const modId = pm.get('moduleId');
+    const fallback = this.modules().length ? this.modules()[0].id : null;
+    this.onSelectionChange(modId ?? fallback ?? '');
+  });
 
+  window.addEventListener('resize', this.updateScrollButtons.bind(this));
+}
+
+  private initializeData(): void {
+    this.modules.set(this.testCaseService.getModules());
+    this.testCasePool.set(this.testCaseService.getTestCases());
     this.extractAvailableAttributes();
-    window.addEventListener('resize', this.updateScrollButtons.bind(this));
   }
 
   ngAfterViewInit(): void {
@@ -281,12 +294,10 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     let cases: TestCase[] = [];
     
     if (this.allSuitesSelected) {
-      // Get all test cases from all suites in the run
       cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
         this.getTestCasesForSuite(suite.id)
       ) || [];
     } else {
-      // Get cases from selected suites only
       cases = this.selectedSuiteIds.flatMap(suiteId => 
         this.getTestCasesForSuite(suiteId)
       );
@@ -302,12 +313,10 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     let cases: TestCase[] = [];
     
     if (this.allSuitesSelected) {
-      // Get all test cases from all suites in the run
       cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
         this.getTestCasesForSuite(suite.id)
       ) || [];
     } else {
-      // Get cases from selected suites only
       cases = this.selectedSuiteIds.flatMap(suiteId => 
         this.getTestCasesForSuite(suiteId)
       );
@@ -357,27 +366,33 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  onSelectionChange(id: string): void {
-    if (!id) return;
+ onSelectionChange(id: string): void {
+  if (!id) return;
 
-    if (this.showTestSuites) {
-      this.handleTestSuiteSelection(id);
-    } else if (this.showTestRuns) {
-      this.onTestRunChange(id);
-    } else {
-      this.handleModuleSelection(id);
-    }
+  // Reset view states when changing selection
+  this.showViewTestCases = false;
+  this.showStartTesting = false;
+  this.formArray.clear();
+  this.uploads = [];
+
+  if (this.showTestSuites) {
+    this.handleTestSuiteSelection(id);
+  } else if (this.showTestRuns) {
+    this.onTestRunChange(id);
+  } else {
+    this.handleModuleSelection(id);
   }
+}
 
   private handleModuleSelection(id: string): void {
-    if (!this.modules.some(m => m.id === id)) return;
+    if (!this.modules().some(m => m.id === id)) return;
 
     this.selectedModule.set(id);
     this.availableVersions = this.testCaseService.getVersionsByModule(id);
     
     if (this.availableVersions.length > 0) {
       this.selectedVersion = this.availableVersions[0];
-      const cases = this.testCasePool.filter(
+      const cases = this.testCasePool().filter(
         tc => tc.moduleId === id && tc.version === this.selectedVersion
       );
       this.versionTestCases.set(cases);
@@ -437,9 +452,9 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (mod && !this.showTestSuites && !this.showTestRuns) {
       if (this.selectedVersion === 'all') {
-        cases = this.testCasePool.filter(tc => tc.moduleId === mod);
+        cases = this.testCasePool().filter(tc => tc.moduleId === mod);
       } else if (this.selectedVersion) {
-        cases = this.testCasePool.filter(
+        cases = this.testCasePool().filter(
           tc => tc.moduleId === mod && tc.version === this.selectedVersion
         );
       }
@@ -468,13 +483,21 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  hasTestCasesToView(): boolean {
-    if (this.showTestRuns) {
-      return !!this.selectedTestRun()?.testSuites?.length;
-    }
-    return this.versionTestCases().length > 0;
+hasTestCasesToView(): boolean {
+  if (this.showTestRuns) {
+    return !!this.selectedTestRun()?.testSuites?.length;
   }
-
+  
+  // For modules view
+  if (this.selectedModule()) {
+    const moduleCases = this.testCasePool().filter(
+      tc => tc.moduleId === this.selectedModule()
+    );
+    return moduleCases.length > 0;
+  }
+  
+  return false;
+}
   onSave(): void {
     const formValues = this.formArray.value;
     const testCases = this.versionTestCases();
@@ -500,13 +523,13 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     });
 
-    this.testCasePool = [...this.testCaseService.getTestCases()];
+    this.testCasePool.set([...this.testCaseService.getTestCases()]);
     
     if (this.showTestRuns && this.selectedTestRunId()) {
       this.updateTestRunProgress();
     }
 
-    console.log('Test results saved successfully!', 'success');
+  console.log('Test results saved successfully!', 'success');
     this.cdRef.detectChanges();
   }
 
@@ -540,7 +563,7 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
 
   extractAvailableAttributes(): void {
     const allAttributes = new Set<string>();
-    this.testCasePool.forEach(tc => {
+    this.testCasePool().forEach(tc => {
       tc.attributes?.forEach(attr => {
         allAttributes.add(attr.key);
       });
@@ -600,7 +623,7 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   filteredTestCases(): TestCase[] {
     const mod = this.selectedModule();
     return mod && !this.showTestSuites && !this.showTestRuns
-      ? this.testCasePool.filter(tc => tc.moduleId === mod) 
+      ? this.testCasePool().filter(tc => tc.moduleId === mod) 
       : [];
   }
 
@@ -783,12 +806,13 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   getTotalCaseCount(): number {
     return this.testRunProgress().total;
   }
-    isImage(url: string): boolean {
+
+  isImage(url: string): boolean {
     if (!url) return false;
     return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
   }
 
-getFileName(url: string): string {
+  getFileName(url: string): string {
     if (!url) return '';
     const parts = url.split('/');
     const lastPart = parts[parts.length - 1];
@@ -804,4 +828,15 @@ getFileName(url: string): string {
     this.formArray.clear();
     this.uploads = [];
   }
+
+  selectedProductId = signal<string | null>(null);
+ filteredModules = computed(() => {
+  const pid = this.selectedProductId();
+  const allModules = this.modules();
+  
+  // If no productId is selected, return all modules
+  if (!pid) return allModules;
+  
+  return allModules.filter(m => m.productId === pid);
+});
 }

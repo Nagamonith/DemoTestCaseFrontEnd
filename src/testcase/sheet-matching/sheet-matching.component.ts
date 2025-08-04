@@ -1,18 +1,21 @@
-import { Component, inject, signal } from '@angular/core';
+// sheet-matching.component.ts
+import { Component, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, ActivatedRoute } from '@angular/router';
-import { MatDialog, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { TestCaseService } from 'src/app/shared/services/test-case.service';
-import { AddAttributeDialogComponent } from './add-attribute-dialog.component';
-
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
+
+import { TestCaseService } from 'src/app/shared/services/test-case.service';
+import { AddAttributeDialogComponent } from './add-attribute-dialog.component';
+import { TestCase } from 'src/app/shared/modles/testcase.model';
 
 interface FieldMapping {
   field: string;
@@ -42,16 +45,17 @@ export class SheetMatchingComponent {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
   private testCaseService = inject(TestCaseService);
 
-  sheetName = signal<string>('');
+  sheetName = signal<string>('Untitled');
   sheetColumns = signal<string[]>([]);
   sheetData = signal<any[]>([]);
   customAttributes = signal<string[]>([]);
   attributeMappings = signal<Record<string, string>>({});
   isProcessing = signal(false);
   errorMessage = signal<string | null>(null);
-  
+  currentProduct = signal<{ id: string, name: string } | null>(null);
 
   coreMappings = signal<FieldMapping[]>([
     { field: 'slNo', label: 'Sl.No', mappedTo: '', required: true },
@@ -68,13 +72,27 @@ export class SheetMatchingComponent {
     const state = navigation?.extras.state;
 
     if (state) {
-      this.sheetName.set(this.route.snapshot.paramMap.get('sheetName') || '');
+      const sheetNameParam = this.route.snapshot.paramMap.get('sheetName');
+      this.sheetName.set(sheetNameParam ? decodeURIComponent(sheetNameParam) : 'Untitled');
       this.sheetColumns.set(state['sheetColumns'] || []);
       this.sheetData.set(state['sheetData'] || []);
+
+      if (state['productId']) {
+        this.currentProduct.set({
+          id: state['productId'],
+          name: state['productName'] || 'Unnamed Product'
+        });
+      }
+
       setTimeout(() => this.autoMapColumns(), 0);
     } else {
       this.router.navigate(['/tester/import-excel']);
     }
+
+    effect(() => {
+      console.log('Core mappings:', this.coreMappings());
+      console.log('Attribute mappings:', this.attributeMappings());
+    });
   }
 
   updateMapping(field: string, column: string): void {
@@ -125,11 +143,16 @@ export class SheetMatchingComponent {
     this.router.navigate(['/tester/import-excel']);
   }
 
-  importTestCases(): void {
+  async importTestCases(): Promise<void> {
     this.isProcessing.set(true);
     this.errorMessage.set(null);
 
     try {
+      const product = this.currentProduct();
+      if (!product) {
+        throw new Error('No product selected. Please select a product before importing.');
+      }
+
       const missingRequired = this.coreMappings()
         .filter(m => m.required && !m.mappedTo);
 
@@ -138,9 +161,9 @@ export class SheetMatchingComponent {
       }
 
       const moduleName = this.generateModuleName();
-      const moduleId = this.testCaseService.addModule(moduleName,"");
+      const moduleId = this.testCaseService.addModule(moduleName, product.id);
 
-      this.sheetData().forEach((row, index) => {
+      const testCasesToAdd = this.sheetData().map((row, index) => {
         const attributes = this.customAttributes()
           .filter(attr => this.attributeMappings()[attr] && row[this.attributeMappings()[attr]])
           .map(attr => ({
@@ -148,9 +171,9 @@ export class SheetMatchingComponent {
             value: row[this.attributeMappings()[attr]]
           }));
 
-        const testCase: any = {
+        return {
           moduleId,
-          version: this.getMappedValue('version') || 'v1.0',
+          version: row[this.getMappedValue('version')] || 'v1.0',
           testCaseId: row[this.getMappedValue('testCaseId')] || `TC${index + 1}`,
           useCase: row[this.getMappedValue('useCase')] || '',
           scenario: row[this.getMappedValue('scenario')] || '',
@@ -158,16 +181,30 @@ export class SheetMatchingComponent {
           expected: row[this.getMappedValue('expected')] || '',
           slNo: parseInt(row[this.getMappedValue('slNo')]) || index + 1,
           attributes,
-          result: 'Pending'
-        };
-
-        this.testCaseService.addTestCase(testCase);
+          result: 'Pending',
+          actual: '',
+          remarks: '',
+          uploads: []
+        } as unknown as Omit<TestCase, 'id'>;
       });
 
-      this.router.navigate(['/tester/modules', moduleId]);
+    const addedCases = await this.testCaseService.addTestCasesBulk(testCasesToAdd);
+
+this.snackBar.open(
+  `Imported ${addedCases.success} test cases to ${moduleName}. ${addedCases.errors} failed.`,
+  'Close',
+  { duration: 5000 }
+);
+
+      this.router.navigate(['/tester/modules', moduleId], {
+        state: { refresh: true }
+      });
+
     } catch (error) {
-      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to import test cases');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to import test cases';
+      this.errorMessage.set(errorMsg);
       console.error('Import error:', error);
+      this.snackBar.open(errorMsg, 'Close', { duration: 5000 });
     } finally {
       this.isProcessing.set(false);
     }

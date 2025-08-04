@@ -4,6 +4,10 @@
       <mat-icon>description</mat-icon>
       Mapping Sheet: <strong>{{ sheetName() }}</strong>
     </h2>
+    <div class="product-context-banner" *ngIf="currentProduct()">
+  <mat-icon>category</mat-icon>
+  <span>Importing to: <strong>{{ currentProduct()?.name }}</strong></span>
+    </div>
     <button (click)="goBack()" class="back-btn">
       <mat-icon>arrow_back</mat-icon>
       Back to Import
@@ -96,7 +100,7 @@
         Preview (First 3 Rows)
       </h3>
       
-      <div *ngIf="sheetData().length > 0" class="preview-table-container">
+      <div *ngIf="sheetData() && sheetData().length > 0" class="preview-table-container">
         <table class="preview-table">
           <thead>
             <tr>

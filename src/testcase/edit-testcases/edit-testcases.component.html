@@ -9,17 +9,17 @@
 
 <div class="container">
   <h2 class="text-center">Test Case Management</h2>
-  <button (click)="printData()">Print Debug Data</button>
+  <!-- <button (click)="printData()">Print Debug Data</button> -->
 
   <!-- Debug information -->
-  <div class="debug-info" *ngIf="selectedModule()">
+  <!-- <div class="debug-info" *ngIf="selectedModule()">
     <div><strong>Debug Info:</strong></div>
     <div>Module ID: {{ selectedModule() }}</div>
     <div>Module Name: {{ getModuleName(selectedModule()) }}</div>
     <div>Versions: {{ versions() | json }}</div>
     <div>Total Test Cases: {{ testCases().length }}</div>
     <div>Filtered Test Cases: {{ filteredTestCases().length }}</div>
-  </div>
+  </div> -->
 
   <!-- Module and Version display -->
   <div class="module-info">
@@ -75,40 +75,51 @@
       </div>
     </div>
   </div>
+<!-- Test case table -->
+<div *ngIf="filteredTestCases().length > 0" class="table-container">
+  <table class="test-case-table">
+    <thead>
+      <tr>
+        <th>Sl.No</th>
+        <th>Version</th>
+        <th>Test Case ID</th>
+        <th>Use Case</th>
+        <th>Scenario</th>
+        <th>Steps</th>
+        <th>Expected</th>
+        
+        <!-- Dynamic attribute columns -->
+        <th *ngFor="let attrName of getUniqueAttributeNames()">
+          {{attrName}}
+        </th>
+        
+        <th>Actions</th>
+      </tr>
+    </thead>
 
-  <!-- Test case table -->
-  <div *ngIf="filteredTestCases().length > 0" class="table-container">
-    <table class="test-case-table">
-      <thead>
-        <tr>
-          <th>Sl.No</th>
-          <th>Version</th>
-          <th>Test Case ID</th>
-          <th>Use Case</th>
-          <th>Scenario</th>
-          <th>Steps</th>
-          <th>Expected</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        <tr *ngFor="let testCase of filteredTestCases(); let i = index">
-          <td>{{ testCase.slNo }}</td>
-          <td>{{ testCase.version }}</td>
-          <td>{{ testCase.testCaseId }}</td>
-          <td class="wrap-text">{{ testCase.useCase }}</td>
-          <td class="wrap-text">{{ testCase.scenario }}</td>
-          <td class="wrap-text">{{ testCase.steps }}</td>
-          <td class="wrap-text">{{ testCase.expected }}</td>
-          <td class="actions">
-            <button class="btn-small" (click)="startEditing(testCase)">Edit</button>
-            <button class="btn-small-danger" (click)="deleteTestCase(testCase.id, $event)">Delete</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+    <tbody>
+      <tr *ngFor="let testCase of filteredTestCases()">
+        <td>{{testCase.slNo}}</td>
+        <td>{{testCase.version}}</td>
+        <td>{{testCase.testCaseId}}</td>
+        <td class="wrap-text">{{testCase.useCase}}</td>
+        <td class="wrap-text">{{testCase.scenario}}</td>
+        <td class="wrap-text">{{testCase.steps}}</td>
+        <td class="wrap-text">{{testCase.expected}}</td>
+        
+        <!-- Dynamic attribute values -->
+        <td *ngFor="let attrName of getUniqueAttributeNames()" class="wrap-text">
+          {{getAttributeValue(testCase, attrName) || '-'}}
+        </td>
+        
+        <td class="actions">
+          <button class="btn-small" (click)="startEditing(testCase)">Edit</button>
+          <button class="btn-small-danger" (click)="deleteTestCase(testCase.id, $event)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
   <!-- No results message -->
   <div *ngIf="filteredTestCases().length === 0" class="no-results">
