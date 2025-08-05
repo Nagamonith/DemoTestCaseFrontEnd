@@ -6,6 +6,7 @@ import { DUMMY_TEST_CASES } from '../data/dummy-testcases';
 import { DUMMY_MODULES } from '../data/dummy-model-data';
 import { ProductService } from './product.service';
 import { first, lastValueFrom, take } from 'rxjs';
+import { ModuleAttribute } from '../modles/module-attribute.model';
 
 @Injectable({
   providedIn: 'root'
@@ -21,41 +22,47 @@ export class TestCaseService {
     this.setupPersistence();
   }
 
-  private setupPersistence(): void {
+private setupPersistence(): void {
     effect(() => {
-      try {
-        localStorage.setItem('testCases', JSON.stringify(this.testCases()));
-        localStorage.setItem('productModules', JSON.stringify(this.productModules()));
-        localStorage.setItem('productVersions', JSON.stringify(this.productVersions()));
-      } catch (e) {
-        console.error('Failed to save data to localStorage', e);
-      }
+        try {
+            localStorage.setItem('testCases', JSON.stringify(this.testCases()));
+            localStorage.setItem('productModules', JSON.stringify(this.productModules()));
+            localStorage.setItem('productVersions', JSON.stringify(this.productVersions()));
+            localStorage.setItem('moduleAttributes', JSON.stringify(this.moduleAttributes()));
+        } catch (e) {
+            console.error('Failed to save data to localStorage', e);
+        }
     });
-  }
+}
 
-  private initializeData(): void {
+private initializeData(): void {
     try {
-      const savedTestCases = localStorage.getItem('testCases');
-      const savedModules = localStorage.getItem('productModules');
-      const savedVersions = localStorage.getItem('productVersions');
+        const savedTestCases = localStorage.getItem('testCases');
+        const savedModules = localStorage.getItem('productModules');
+        const savedVersions = localStorage.getItem('productVersions');
+        const savedAttributes = localStorage.getItem('moduleAttributes');
 
-      if (savedTestCases && savedModules && savedVersions) {
-        this.testCases.set(JSON.parse(savedTestCases));
-        this.productModules.set(JSON.parse(savedModules));
-        this.productVersions.set(JSON.parse(savedVersions));
-        console.log('Data loaded from localStorage');
-        this.validateDataIntegrity();
-        return;
-      }
+        if (savedTestCases && savedModules && savedVersions) {
+            this.testCases.set(JSON.parse(savedTestCases));
+            this.productModules.set(JSON.parse(savedModules));
+            this.productVersions.set(JSON.parse(savedVersions));
+            
+            // Handle the case where savedAttributes might be null
+            this.moduleAttributes.set(savedAttributes ? JSON.parse(savedAttributes) : []);
+            
+            console.log('Data loaded from localStorage');
+            this.validateDataIntegrity();
+            return;
+        }
     } catch (e) {
-      console.error('Failed to parse saved data', e);
-      localStorage.clear();
+        console.error('Failed to parse saved data', e);
+        localStorage.clear();
     }
 
     console.log('Initializing with dummy data');
     this.resetToDummyData();
     this.initializeVersions();
-  }
+}
 
   private syncVersions(): void {
     this.initializeVersions();
@@ -744,6 +751,36 @@ countTestCasesByStatus(moduleId?: string, version?: string): Record<TestCaseResu
       console.error('Test cases with invalid version references:', invalidVersions.length);
     }
   }
+  
+// ========== Module Attribute Management ==========
+private moduleAttributes = signal<ModuleAttribute[]>([]);
+
+getModuleAttributes(moduleId: string): ModuleAttribute[] {
+    const attributes = this.moduleAttributes().filter(attr => attr.moduleId === moduleId);
+    return attributes.length > 0 ? attributes : [];
+}
+
+saveModuleAttribute(attribute: ModuleAttribute): void {
+    if (!attribute.id) {
+        attribute.id = `attr_${Date.now()}`;
+    }
+
+    this.moduleAttributes.update(current => {
+        const existingIndex = current.findIndex(a => a.id === attribute.id);
+        if (existingIndex >= 0) {
+            const updated = [...current];
+            updated[existingIndex] = attribute;
+            return updated;
+        }
+        return [...current, attribute];
+    });
+}
+
+deleteModuleAttribute(attributeId: string): void {
+    this.moduleAttributes.update(current => 
+        current.filter(attr => attr.id !== attributeId)
+    );
+}
 }
 
 export type { ProductModule };

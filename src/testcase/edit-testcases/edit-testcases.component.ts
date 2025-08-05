@@ -3,7 +3,8 @@ import { FormBuilder, FormArray, Validators, ReactiveFormsModule, FormsModule, F
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { TestCaseService } from 'src/app/shared/services/test-case.service';
-import { ManualTestCaseStep, TestCase ,TestCaseResult } from 'src/app/shared/modles/testcase.model';
+import { ManualTestCaseStep, TestCase, TestCaseResult } from 'src/app/shared/modles/testcase.model';
+import { ModuleAttribute } from 'src/app/shared/modles/module-attribute.model';
 import { AlertComponent } from "src/app/shared/alert/alert.component";
 import { ChangeDetectorRef } from '@angular/core';
 import { ProductModule } from 'src/app/shared/modles/module.model';
@@ -48,51 +49,40 @@ export class EditTestcasesComponent {
   isConfirmAlert = false;
   pendingDeleteId: string | null = null;
 
-form = this.fb.group({
-  id: [''],
-  moduleId: ['', Validators.required],
-  version: ['v1.0', Validators.required],
-  testCaseId: ['', [Validators.required, Validators.pattern(/^TC\d+/)]],
-  useCase: ['', Validators.required],
-  scenario: ['', Validators.required],
-  steps: this.fb.array([this.createStep()]), // Initialize with one empty step
-  expected: ['', Validators.required],
-  result: ['Pending' as 'Pass' | 'Fail' | 'Pending' | 'Blocked'],
-  actual: [''],
-  remarks: [''],
-  testType: ['Manual'],
-  testTool: [''],
-  attributes: this.fb.array([])
-});
+  // Module attributes management
+  moduleAttributes = signal<ModuleAttribute[]>([]);
+  showModuleAttributesForm = signal(false);
+  currentModuleAttribute = signal<ModuleAttribute | null>(null);
 
-// Helper method to create a step FormGroup
-createStep(): FormGroup {
-  return this.fb.group({
-    steps: ['', Validators.required],
-    expectedResult: ['', Validators.required]
+  form = this.fb.group({
+    id: [''],
+    moduleId: ['', Validators.required],
+    version: ['v1.0', Validators.required],
+    testCaseId: ['', [Validators.required, Validators.pattern(/^TC\d+/)]],
+    useCase: ['', Validators.required],
+    scenario: ['', Validators.required],
+    steps: ['', Validators.required], // Changed from FormArray to simple FormControl
+    expectedResult: ['', Validators.required], // Changed from 'expected' to match model
+    result: ['Pending' as TestCaseResult],
+    actual: [''],
+    remarks: [''],
+    testType: ['Manual'],
+    testTool: [''],
+    attributes: this.fb.array([])
   });
-}
-
-// Getter for steps FormArray
-get steps(): FormArray {
-  return this.form.get('steps') as FormArray;
-}
 
   constructor() {
     this.route.paramMap.subscribe(params => {
       const moduleId = params.get('moduleId');
       if (moduleId) {
         this.selectedModule.set(moduleId);
-        this.form.patchValue({
-          moduleId: moduleId
-        });
+        this.form.patchValue({ moduleId: moduleId });
         this.loadTestCases(moduleId);
         const versions = this.testCaseService.getVersionsByProduct(moduleId);
-if (versions) {
-  const versionStrings = versions.map(v => v.version);
-  this.versions.set(versionStrings);
-}
-
+        if (versions) {
+          const versionStrings = versions.map(v => v.version);
+          this.versions.set(versionStrings);
+        }
       }
     });
 
@@ -121,32 +111,31 @@ if (versions) {
     return this.form.get('attributes') as FormArray;
   }
 
- // In edit-testcases.component.ts
-loadTestCases(moduleId: string): void {
-  const module = this.testCaseService.getModuleById(moduleId);
-  if (!module) {
-    console.error(`Module ${moduleId} not found`);
-    this.testCases.set([]);
-    return;
+  loadTestCases(moduleId: string): void {
+    const module = this.testCaseService.getModuleById(moduleId);
+    if (!module) {
+      console.error(`Module ${moduleId} not found`);
+      this.testCases.set([]);
+      return;
+    }
+
+    const productVersions = this.testCaseService.getVersionStringsByProduct(module.productId);
+    this.versions.set(productVersions);
+
+    const allTestCases = this.testCaseService.getTestCasesByModule(moduleId);
+    this.testCases.set(allTestCases || []);
+    this.applyFilters();
+
+    // Load module attributes
+    this.moduleAttributes.set(this.testCaseService.getModuleAttributes(moduleId) || []);
   }
-
-  // Load versions for the product
-  const productVersions = this.testCaseService.getVersionStringsByProduct(module.productId);
-  this.versions.set(productVersions);
-
-  const allTestCases = this.testCaseService.getTestCasesByModule(moduleId);
-  this.testCases.set(allTestCases || []);
-  this.applyFilters();
-}
 
   getUniqueAttributeNames(): string[] {
     const attributeNames = new Set<string>();
-    this.testCases().forEach(testCase => {
-      testCase.attributes?.forEach(attr => {
-        if (attr.key) {
-          attributeNames.add(attr.key);
-        }
-      });
+    this.moduleAttributes().forEach(attr => {
+      if (attr.key) {
+        attributeNames.add(attr.key);
+      }
     });
     return Array.from(attributeNames);
   }
@@ -162,7 +151,6 @@ loadTestCases(moduleId: string): void {
   private applyFilters(): void {
     const { slNo, testCaseId, useCase, version } = this.filter();
     const filtered = this.testCases().filter(tc => 
-      
       (!testCaseId || (tc.testCaseId && tc.testCaseId.toLowerCase().includes(testCaseId.toLowerCase()))) &&
       (!useCase || (tc.useCase && tc.useCase.toLowerCase().includes(useCase.toLowerCase()))) &&
       (!version || tc.version === version)
@@ -173,18 +161,6 @@ loadTestCases(moduleId: string): void {
   getModuleName(moduleId: string): string {
     const module = this.modules().find(m => m.id === moduleId);
     return module?.name || 'Unknown Module';
-  }
-
-  getUniqueAttributes(): string[] {
-    const allAttributes = new Set<string>();
-    this.testCases().forEach(tc => {
-      tc.attributes?.forEach(attr => {
-        if (attr.key) {
-          allAttributes.add(attr.key);
-        }
-      });
-    });
-    return Array.from(allAttributes);
   }
 
   getAttributeValue(testCase: TestCase, key: string): string {
@@ -201,101 +177,54 @@ loadTestCases(moduleId: string): void {
     );
   }
 
-  removeAttribute(index: number): void {
-    this.attributes.removeAt(index);
-  }
-
-openForm(): void {
-  // Get the module to find its product
-  const module = this.testCaseService.getModuleById(this.selectedModule());
-  if (!module) {
-    console.error('Module not found');
-    return;
-  }
-
-  // Get versions for the product
-  const productVersions = this.testCaseService.getVersionStringsByProduct(module.productId);
-  this.versions.set(productVersions);
-
-  const latestVersion = productVersions.length > 0 
-    ? productVersions[productVersions.length - 1] 
-    : 'v1.0';
-
-  this.form.reset({
-    moduleId: this.selectedModule(),
-    version: latestVersion,
-    result: 'Pending'
-  });
-  
-  this.attributes.clear();
-  this.isEditing.set(true);
-}
-startEditing(testCase: TestCase): void {
-  // Normalize result to allowed form values
-  const normalizeResult = (result: TestCaseResult | undefined): 'Pending' | 'Pass' | 'Fail' | 'Blocked' => {
-    switch (result) {
-      case 'Passed':
-        return 'Pass';
-      case 'Failed':
-        return 'Fail';
-      case 'Skipped':
-        return 'Blocked';
-      case 'Pass':
-      case 'Fail':
-      case 'Pending':
-      case 'Blocked':
-        return result;
-      default:
-        return 'Pending';
-    }
-  };
-
-  // Clear existing steps
-  const stepsFormArray = this.form.get('steps') as FormArray;
-  stepsFormArray.clear();
-
-  // Add steps from the test case
-  if (testCase.steps && testCase.steps.length > 0) {
-    testCase.steps.forEach(step => {
-      stepsFormArray.push(this.fb.group({
-        steps: [step.steps || '', Validators.required],
-        expectedResult: [step.expectedResult || '', Validators.required]
-      }));
+  openForm(): void {
+    this.form.reset();
+    this.attributes.clear();
+    
+    this.form.patchValue({
+      moduleId: this.selectedModule(),
+      version: this.versions()[0] || 'v1.0',
+      result: 'Pending',
+      testType: 'Manual'
     });
-  } else {
-    // Add one empty step if none exist
-    stepsFormArray.push(this.fb.group({
-      steps: ['', Validators.required],
-      expectedResult: ['', Validators.required]
-    }));
+    
+    this.moduleAttributes().forEach(attr => {
+      this.addAttribute(attr.key, '');
+    });
+    
+    this.isEditing.set(true);
   }
 
-  // Patch main form values
-  this.form.patchValue({
-    id: testCase.id || '',
-    moduleId: testCase.moduleId || '',
-    version: testCase.version || 'v1.0',
-    testCaseId: testCase.testCaseId || '',
-    useCase: testCase.useCase || '',
-    scenario: testCase.scenario || '',
-    result: normalizeResult(testCase.result),
-    actual: testCase.actual || '',
-    remarks: testCase.remarks || '',
-    testType: testCase.testType || 'Manual',
-    testTool: testCase.testTool || ''
-  });
+  startEditing(testCase: TestCase): void {
+    this.form.reset();
+    this.attributes.clear();
 
-  // Clear and re-add dynamic attributes
-  this.attributes.clear();
-  testCase.attributes?.forEach(attr => {
-    if (attr.key && attr.value) {
-      this.addAttribute(attr.key, attr.value);
-    }
-  });
+    // Convert steps array to single text
+    const stepsText = testCase.steps?.map(step => step.steps).join('\n\n') || '';
+    
+    this.form.patchValue({
+      id: testCase.id,
+      moduleId: testCase.moduleId,
+      version: testCase.version,
+      testCaseId: testCase.testCaseId,
+      useCase: testCase.useCase,
+      scenario: testCase.scenario,
+      steps: stepsText,
+      expectedResult: testCase.steps?.[0]?.expectedResult || '',
+      result: testCase.result || 'Pending',
+      actual: testCase.actual || '',
+      remarks: testCase.remarks || '',
+      testType: testCase.testType || 'Manual'
+    });
 
-  // Set editing state
-  this.isEditing.set(true);
-}
+    // Add attributes
+    this.moduleAttributes().forEach(attr => {
+      const existingValue = testCase.attributes?.find(a => a.key === attr.key)?.value || '';
+      this.addAttribute(attr.key, existingValue);
+    });
+
+    this.isEditing.set(true);
+  }
 
   cancelEditing(): void {
     this.form.reset();
@@ -303,30 +232,38 @@ startEditing(testCase: TestCase): void {
     this.isEditing.set(false);
   }
 
-saveTestCase(): void {
+ saveTestCase(): void {
+  this.markFormGroupTouched(this.form);
+
   if (this.form.invalid) {
-    this.markFormGroupTouched(this.form);
+    console.log('Form errors:', this.form.errors);
+    this.showAlertMessage('Please fill all required fields correctly', 'error');
     return;
   }
 
   const formValue = this.form.value;
 
-  // Cast steps to ManualTestCaseStep[]
-  const steps: ManualTestCaseStep[] = (formValue.steps || []).map((step: any) => ({
-    testCaseId: step.testCaseId || '',
-    steps: step.steps || '',
-    expectedResult: step.expectedResult || ''
-  }));
+  // Generate testCaseId (used in both testCase and steps)
+  const testCaseId = formValue.testCaseId || Date.now().toString();
+
+  // Convert steps text back to steps array with testCaseId
+  const stepsArray = formValue.steps?.split('\n\n')
+    .filter((s: string) => s.trim() !== '')
+    .map((stepText: string) => ({
+      testCaseId: testCaseId,  // ✅ required field
+      steps: stepText,
+      expectedResult: formValue.expectedResult || ''
+    })) || [];
 
   const testCase: TestCase = {
     id: formValue.id || Date.now().toString(),
     moduleId: this.selectedModule(),
     version: formValue.version || 'v1.0',
-    testCaseId: formValue.testCaseId || '',
+    testCaseId: testCaseId,
     useCase: formValue.useCase || '',
     scenario: formValue.scenario || '',
-    testType: formValue.testType as 'Manual' | 'Automation' | 'WebAPI' | 'Database' | 'Performance',
-    steps: steps,
+    testType: formValue.testType as 'Manual' | 'Automation' || 'Manual',
+    steps: stepsArray,
     result: formValue.result as TestCaseResult || 'Pending',
     actual: formValue.actual || '',
     remarks: formValue.remarks || '',
@@ -334,20 +271,75 @@ saveTestCase(): void {
     uploads: []
   };
 
-  if (formValue.id) {
-    this.testCaseService.updateTestCase(testCase);
-    this.showAlertMessage('Test case updated successfully!', 'success');
-  } else {
-    this.testCaseService.addTestCase(testCase);
-    this.showAlertMessage('Test case added successfully!', 'success');
+  try {
+    if (formValue.id) {
+      this.testCaseService.updateTestCase(testCase);
+      this.showAlertMessage('Test case updated successfully!', 'success');
+    } else {
+      this.testCaseService.addTestCase(testCase);
+      this.showAlertMessage('Test case added successfully!', 'success');
+    }
+    this.loadTestCases(this.selectedModule());
+    this.cancelEditing();
+  } catch (error) {
+    console.error('Error saving test case:', error);
+    this.showAlertMessage('Error saving test case', 'error');
   }
-
-  this.loadTestCases(this.selectedModule());
-  this.cancelEditing();
 }
 
 
+  // Module attributes management (keep existing methods)
+  openModuleAttributes(): void {
+    const moduleId = this.selectedModule();
+    if (!moduleId) return;
+    this.moduleAttributes.set(this.testCaseService.getModuleAttributes(moduleId) || []);
+    this.showModuleAttributesForm.set(true);
+  }
 
+  addModuleAttribute(): void {
+    this.currentModuleAttribute.set({
+      id: '',
+      moduleId: this.selectedModule(),
+      name: '',
+      key: '',
+      type: 'text',
+      isRequired: false
+    });
+  }
+
+  editModuleAttribute(attribute: ModuleAttribute): void {
+    this.currentModuleAttribute.set({...attribute});
+  }
+
+  saveModuleAttribute(): void {
+    const attribute = this.currentModuleAttribute();
+    if (!attribute) return;
+    
+    if (!attribute.name || !attribute.key) {
+      this.showAlertMessage('Name and Key are required', 'error');
+      return;
+    }
+    
+    if (!attribute.id) {
+      attribute.id = `attr_${Date.now()}`;
+    }
+    
+    this.testCaseService.saveModuleAttribute(attribute);
+    this.moduleAttributes.set(this.testCaseService.getModuleAttributes(this.selectedModule()) || []);
+    this.currentModuleAttribute.set(null);
+  }
+
+  deleteModuleAttribute(attributeId: string): void {
+    this.testCaseService.deleteModuleAttribute(attributeId);
+    this.moduleAttributes.set(this.testCaseService.getModuleAttributes(this.selectedModule()) || []);
+  }
+
+  closeModuleAttributeForm(): void {
+    this.currentModuleAttribute.set(null);
+    this.showModuleAttributesForm.set(false);
+  }
+
+  // Other methods (keep existing)
   deleteTestCase(id: string, event: MouseEvent): void {
     event.stopPropagation();
     this.alertMessage = 'Are you sure you want to delete this test case?';
@@ -410,7 +402,5 @@ saveTestCase(): void {
   printData(): void {
     console.log('All modules:', this.testCaseService.getModules());
     console.log('All test cases in service:', this.testCaseService.getTestCases());
-    const mod1TestCases = this.testCaseService.getTestCases()?.filter(tc => tc.moduleId === 'mod1');
-    console.log('Test cases for mod1:', mod1TestCases);
   }
 }

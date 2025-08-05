@@ -1,4 +1,5 @@
-
+// test-case.model.ts
+// src/app/shared/modles/testcase.model.ts
 
 export interface TestCaseAttribute {
   key: string;

@@ -1,5 +1,7 @@
 // src/app/shared/modles/module.model.ts
-import { Product } from './product.model';
+
+import { ModuleAttribute } from "./module-attribute.model";
+
 
 export interface ProductModule {
   id: string;
@@ -9,7 +11,8 @@ export interface ProductModule {
   description?: string;
   createdAt?: Date;
   isActive: boolean;
-   editing?: boolean; 
+  editing?: boolean;
+  attributes?: ModuleAttribute[]; 
 }
 
 

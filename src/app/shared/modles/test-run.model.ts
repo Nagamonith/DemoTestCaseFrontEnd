@@ -1,3 +1,6 @@
+// test-run.model.ts
+// src/app/shared/modles/test-run.model.ts
+
 // Used throughout UI for simplicity
 export type TestResult = 'Pass' | 'Fail' | 'Pending' | 'Blocked';
 

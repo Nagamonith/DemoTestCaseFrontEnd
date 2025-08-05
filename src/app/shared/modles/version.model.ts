@@ -1,4 +1,5 @@
 // version.model.ts
+// src/app/shared/modles/version.model.ts
 export const VERSION_REGEX = /^v\d+(\.\d+)*$/; // Standardized regex
 
 export interface ProductVersion {

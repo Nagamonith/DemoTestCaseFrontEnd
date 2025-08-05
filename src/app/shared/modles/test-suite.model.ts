@@ -1,4 +1,5 @@
   // test-suite.model.ts
+  // src/app/shared/modles/test-suite.model.ts
   export interface TestCaseRef {
     id: string;           // References TestCase.id (primary key)
     testCaseId: string;   // Business ID (TC1001 format)
@@ -15,4 +16,13 @@ export interface TestSuite {
   createdAt: Date;
   updatedAt: Date;
   isActive: boolean;
+}
+
+export interface TestSuiteTestCase {
+  id?: number;
+  testSuiteId: string;
+  testCaseId: string;
+  moduleId: string;
+  version: string;
+  addedAt?: Date;
 }
