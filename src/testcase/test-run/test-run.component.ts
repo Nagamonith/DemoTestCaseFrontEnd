@@ -6,6 +6,7 @@ import { TestSuiteService } from 'src/app/shared/services/test-suite.service';
 import { TestRun } from 'src/app/shared/modles/test-run.model';
 import { TestSuite } from 'src/app/shared/modles/test-suite.model';
 import { AlertComponent } from 'src/app/shared/alert/alert.component';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-test-run',
@@ -15,62 +16,67 @@ import { AlertComponent } from 'src/app/shared/alert/alert.component';
   styleUrls: ['./test-run.component.css']
 })
 export class TestRunComponent {
-  // Inject services
   private testRunService = inject(TestRunService);
   private testSuiteService = inject(TestSuiteService);
+  private route = inject(ActivatedRoute);
 
-  // Form-bound fields
   runName: string = '';
   runDescription: string = '';
 
-  // Signals for state
   mode = signal<'list' | 'add' | 'edit'>('list');
   selectedRunId = signal<string>('');
   selectedSuiteIds = signal<string[]>([]);
   testRuns = signal<TestRun[]>([]);
   testSuites = signal<TestSuite[]>([]);
+  currentProductId = signal<string>('');
 
-  // Alert system
   showAlert = signal(false);
   alertMessage = signal('');
   alertType = signal<'success' | 'error' | 'warning'>('success');
   isConfirmAlert = signal(false);
   pendingDeleteId = signal<string | null>(null);
   filteredTestSuites = signal<TestSuite[]>([]);
-suiteSearchTerm = signal<string>('');
+  suiteSearchTerm = signal<string>('');
 
   constructor() {
-    this.loadTestRuns();
-    this.loadTestSuites();
-    this.filteredTestSuites.set(this.testSuites());
+    this.route.queryParamMap.subscribe(params => {
+      const productId = params.get('productId');
+      if (productId) {
+        this.currentProductId.set(productId);
+        this.loadTestRuns();
+        this.loadTestSuites();
+      }
+    });
   }
 
   filterTestSuites(): void {
-  const searchTerm = this.suiteSearchTerm().toLowerCase();
-  if (!searchTerm) {
-    this.filteredTestSuites.set(this.testSuites());
-    return;
+    const searchTerm = this.suiteSearchTerm().toLowerCase();
+    if (!searchTerm) {
+      this.filteredTestSuites.set(this.testSuites());
+      return;
+    }
+    
+    this.filteredTestSuites.set(
+      this.testSuites().filter(suite => 
+        suite.name.toLowerCase().includes(searchTerm) ||
+        (suite.description && suite.description.toLowerCase().includes(searchTerm))
+      )
+    );
   }
-  
-  this.filteredTestSuites.set(
-    this.testSuites().filter(suite => 
-      suite.name.toLowerCase().includes(searchTerm) ||
-      (suite.description && suite.description.toLowerCase().includes(searchTerm))
-    )
-  );
-}
 
-  // Load all test runs
   private loadTestRuns(): void {
-    this.testRuns.set(this.testRunService.getTestRuns());
+    if (this.currentProductId()) {
+      this.testRuns.set(this.testRunService.getTestRuns(this.currentProductId()));
+    }
   }
 
-  // Load all test suites
   private loadTestSuites(): void {
-    this.testSuites.set(this.testSuiteService.getTestSuites());
+    if (this.currentProductId()) {
+      this.testSuites.set(this.testSuiteService.getTestSuites(this.currentProductId()));
+      this.filteredTestSuites.set(this.testSuites());
+    }
   }
 
-  // Start add
   startAddNewRun(): void {
     this.mode.set('add');
     this.runName = '';
@@ -78,7 +84,6 @@ suiteSearchTerm = signal<string>('');
     this.selectedSuiteIds.set([]);
   }
 
-  // Start edit
   startEditRun(runId: string): void {
     const run = this.testRunService.getTestRunById(runId);
     if (run) {
@@ -90,48 +95,52 @@ suiteSearchTerm = signal<string>('');
     }
   }
 
-  // Cancel
   cancelEdit(): void {
     this.mode.set('list');
     this.selectedRunId.set('');
     this.selectedSuiteIds.set([]);
   }
 
-    handleCheckboxChange(suiteId: string, event: Event): void {
+  handleCheckboxChange(suiteId: string, event: Event): void {
     const checkbox = event.target as HTMLInputElement;
     this.toggleSuiteSelection(suiteId, checkbox.checked);
   }
 
-  // Toggle test suite selection
-   toggleSuiteSelection(suiteId: string, isChecked: boolean | null): void {
+  toggleSuiteSelection(suiteId: string, isChecked: boolean | null): void {
     if (isChecked === null || isChecked === undefined) return;
     
     this.selectedSuiteIds.update(current => {
       if (isChecked) {
-        // Add if not already present
         return current.includes(suiteId) ? current : [...current, suiteId];
       } else {
-        // Remove if present
         return current.filter(id => id !== suiteId);
       }
     });
   }
 
-  // For checkbox checked status
   isSuiteSelected(suiteId: string): boolean {
     return this.selectedSuiteIds().includes(suiteId);
   }
 
-  // Save test run (create or update)
   saveTestRun(): void {
     if (!this.runName.trim()) {
       this.showAlertMessage('Test run name is required', 'error');
       return;
     }
 
+    if (!this.currentProductId()) {
+      this.showAlertMessage('Product ID is required', 'error');
+      return;
+    }
+
     const selectedSuites = this.testSuites().filter(suite => 
       this.selectedSuiteIds().includes(suite.id)
     );
+
+    if (selectedSuites.length === 0) {
+      this.showAlertMessage('At least one test suite must be selected', 'error');
+      return;
+    }
 
     if (this.mode() === 'add') {
       const newRun = this.testRunService.addTestRun(
@@ -159,7 +168,6 @@ suiteSearchTerm = signal<string>('');
     setTimeout(() => this.cancelEdit(), 1000);
   }
 
-  // Delete
   confirmDeleteRun(runId: string): void {
     this.pendingDeleteId.set(runId);
     this.alertMessage.set('Are you sure you want to delete this test run?');
@@ -189,7 +197,6 @@ suiteSearchTerm = signal<string>('');
     this.pendingDeleteId.set(null);
   }
 
-  // Utility: show alert
   private showAlertMessage(message: string, type: 'success' | 'error' | 'warning'): void {
     this.alertMessage.set(message);
     this.alertType.set(type);
@@ -197,7 +204,6 @@ suiteSearchTerm = signal<string>('');
     setTimeout(() => this.showAlert.set(false), 3000);
   }
 
-  // Format date for display
   formatDate(date: Date): string {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',

@@ -267,8 +267,8 @@
               </td>
               
               <td *ngFor="let col of testColumns" class="wrap-text" [style.width.px]="col.width">
-                {{ getCellValue(tc, col.field) }}
-              </td>
+  {{ getCellValue(tc, col.field, i) }}
+</td>
 
               <td *ngFor="let col of attributeColumns" class="wrap-text" [style.width.px]="col.width">
                 {{ getCellValue(tc, col.field) }}

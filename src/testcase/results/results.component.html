@@ -246,20 +246,35 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let testCase of filteredTestCases()" [class.pass-row]="testCase.result === 'Pass'"
-                [class.fail-row]="testCase.result === 'Fail'"
-                [class.pending-row]="!testCase.result || testCase.result === 'Pending'">
-              <td>{{ testCase.slNo }}</td>
-              <td>{{ testCase.testCaseId }}</td>
-              <td>{{ testCase.useCase }}</td>
-              <td>{{ testCase.scenario }}</td>
-              <td class="steps-cell">{{ testCase.steps }}</td>
-              <td>{{ testCase.expected }}</td>
-              <td>{{ testCase.actual || '-' }}</td>
-              <td [class]="testCase.result?.toLowerCase() || 'pending'">
-                {{ testCase.result || 'Pending' }}
-              </td>
-              <td>{{ testCase.remarks || '-' }}</td>
+           <tr *ngFor="let testCase of filteredTestCases(); let i = index"
+    [class.pass-row]="testCase.result === 'Pass'"
+    [class.fail-row]="testCase.result === 'Fail'"
+    [class.pending-row]="!testCase.result || testCase.result === 'Pending'">
+  
+  <td>{{ i + 1 }}</td>
+  <td>{{ testCase.testCaseId }}</td>
+  <td>{{ testCase.useCase }}</td>
+  <td>{{ testCase.scenario }}</td>
+
+  <!-- Show all steps -->
+  <td class="steps-cell">
+    <div *ngFor="let step of testCase.steps">{{ step.steps }}</div>
+  </td>
+
+  <!-- Show all expected results -->
+  <td>
+    <div *ngFor="let step of testCase.steps">{{ step.expectedResult }}</div>
+  </td>
+
+  <td>{{ testCase.actual || '-' }}</td>
+  
+  <td [class]="testCase.result?.toLowerCase() || 'pending'">
+    {{ testCase.result || 'Pending' }}
+  </td>
+  
+  <td>{{ testCase.remarks || '-' }}</td>
+
+
               <td>
                 <button class="copy-btn" (click)="copyTestCaseLink(testCase.testCaseId)" title="Copy test case link">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

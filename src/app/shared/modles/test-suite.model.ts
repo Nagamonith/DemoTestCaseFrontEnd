@@ -6,11 +6,13 @@
     version: string;      // Version reference
   }
 
-  export interface TestSuite {
-    id: string;
-    name: string;
-    description?: string;
-    testCases: TestCaseRef[];  // Uses TestCaseRef, not full TestCase
-    createdAt: Date;
-    updatedAt: Date;
-  }
+export interface TestSuite {
+  id: string;
+  productId: string;
+  name: string;
+  description?: string;
+  testCases: TestCaseRef[];
+  createdAt: Date;
+  updatedAt: Date;
+  isActive: boolean;
+}

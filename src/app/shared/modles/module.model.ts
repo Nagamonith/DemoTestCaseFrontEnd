@@ -6,5 +6,10 @@ export interface ProductModule {
   productId: string;
   version: string;
   name: string;
+  description?: string;
+  createdAt?: Date;
+  isActive: boolean;
+   editing?: boolean; 
 }
+
 

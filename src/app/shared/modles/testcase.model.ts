@@ -1,21 +1,35 @@
+
+
 export interface TestCaseAttribute {
   key: string;
   value: string;
 }
-import { TestCaseResult } from './result-types.model';
+
 export interface TestCase {
   id: string;
-  slNo: number;
   moduleId: string;
   version: string;
   testCaseId: string;
   useCase: string;
   scenario: string;
-  steps: string;
-  expected: string;
+  testType: 'Manual' | 'Automation' | 'WebAPI' | 'Database' | 'Performance';
+  testTool?: string;
   result?: TestCaseResult;
   actual?: string;
   remarks?: string;
-  attributes: TestCaseAttribute[];
-  uploads?: string[];
+  createdAt?: Date;
+  updatedAt?: Date;
+  steps?: ManualTestCaseStep[]; 
+  attributes?: TestCaseAttribute[]; // Optional additional attributes
+  uploads?: string[]; // Optional file uploads
 }
+
+export interface ManualTestCaseStep {
+  id?: number; // Optional as it's auto-incremented in DB
+  testCaseId: string;
+  steps: string;
+  expectedResult: string;
+}
+
+// Update the TestCaseResult type to match the CHECK constraint
+export type TestCaseResult = 'Passed' | 'Failed' | 'Skipped' | 'Pending' | 'Pass' | 'Fail' | 'Blocked';

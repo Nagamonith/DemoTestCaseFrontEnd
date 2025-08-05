@@ -389,7 +389,7 @@ ngOnInit(): void {
 
     this.selectedModule.set(id);
     this.availableVersions = this.testCaseService
-  .getVersionsByModule(id)
+  .getVersionsByProduct(id)
   .map(v => v.version);
 
     
@@ -590,14 +590,17 @@ hasTestCasesToView(): boolean {
     return attr ? attr.value : '';
   }
 
-  getCellValue(testCase: TestCase, field: string): string {
-    if (field.startsWith('attr_')) {
-      const attrKey = field.substring(5);
-      return this.getAttributeValue(testCase, attrKey);
-    }
-    const value = testCase[field as keyof TestCase];
-    return value !== undefined && value !== null ? value.toString() : '';
+getCellValue(testCase: TestCase, field: string, index?: number): string {
+  if (field === 'slNo' && index !== undefined) {
+    return (index + 1).toString();
   }
+  if (field.startsWith('attr_')) {
+    const attrKey = field.substring(5);
+    return this.getAttributeValue(testCase, attrKey);
+  }
+  const value = testCase[field as keyof TestCase];
+  return value !== undefined && value !== null ? value.toString() : '';
+}
 
   onUpload(event: Event, index: number): void {
     const input = event.target as HTMLInputElement;
@@ -642,7 +645,7 @@ hasTestCasesToView(): boolean {
               .includes(this.filter.attributeValue.toLowerCase()));
 
         return (
-          (!this.filter.slNo || tc.slNo.toString().includes(this.filter.slNo)) &&
+          
           (!this.filter.testCaseId || tc.testCaseId.toLowerCase().includes(this.filter.testCaseId.toLowerCase())) &&
           (!this.filter.useCase || tc.useCase.toLowerCase().includes(this.filter.useCase.toLowerCase())) &&
           (!this.filter.result || form.get('result')?.value === this.filter.result) &&

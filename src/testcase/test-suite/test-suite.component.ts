@@ -17,26 +17,22 @@ import { ProductModule } from 'src/app/shared/modles/module.model';
   styleUrls: ['./test-suite.component.css']
 })
 export class TestSuiteComponent {
-  // Inject services
   private testSuiteService = inject(TestSuiteService);
   private testCaseService = inject(TestCaseService);
   private route = inject(ActivatedRoute);
 
-  // Form-bound fields
   suiteName: string = '';
   suiteDescription: string = '';
   selectedModuleId: string = '';
 
-  // Signals for state
   mode = signal<'list' | 'add' | 'edit'>('list');
   selectedSuiteId = signal<string>('');
   selectedTestCases = signal<TestCase[]>([]);
   testSuites = signal<TestSuite[]>([]);
-  currentProductId = signal<string>('1'); // Default to product '1'
+  currentProductId = signal<string>('');
   modules = signal<ProductModule[]>([]);
   availableTestCases = signal<TestCase[]>([]);
 
-  // Alert system
   showAlert = signal(false);
   alertMessage = signal('');
   alertType = signal<'success' | 'error' | 'warning'>('success');
@@ -48,25 +44,22 @@ export class TestSuiteComponent {
       const productId = params.get('productId');
       if (productId) {
         this.currentProductId.set(productId);
+        this.loadTestSuites();
         this.loadModulesForCurrentProduct();
       }
     });
-
-    this.loadTestSuites();
-    this.loadModulesForCurrentProduct();
   }
 
-  // Load all test suites
   private loadTestSuites(): void {
-    this.testSuites.set(this.testSuiteService.getTestSuites());
+    if (this.currentProductId()) {
+      this.testSuites.set(this.testSuiteService.getTestSuites(this.currentProductId()));
+    }
   }
 
-  // Load modules for current product
   private loadModulesForCurrentProduct(): void {
     this.modules.set(this.testCaseService.getModulesByProduct(this.currentProductId()));
   }
 
-  // Start add
   startAddNewSuite(): void {
     this.mode.set('add');
     this.suiteName = '';
@@ -76,7 +69,6 @@ export class TestSuiteComponent {
     this.availableTestCases.set([]);
   }
 
-  // Start edit
   startEditSuite(suiteId: string): void {
     const suite = this.testSuiteService.getTestSuiteById(suiteId);
     if (suite) {
@@ -86,11 +78,9 @@ export class TestSuiteComponent {
       this.suiteDescription = suite.description || '';
       this.selectedModuleId = '';
       
-      // Load test cases for the suite
       const suiteTestCases = this.testSuiteService.getTestCasesForSuite(suiteId);
       this.selectedTestCases.set(suiteTestCases);
       
-      // If there are test cases, set the product context based on the first test case's module
       if (suiteTestCases.length > 0) {
         const firstTestCase = suiteTestCases[0];
         const module = this.testCaseService.getModules().find(m => m.id === firstTestCase.moduleId);
@@ -104,7 +94,6 @@ export class TestSuiteComponent {
     }
   }
 
-  // Cancel
   cancelEdit(): void {
     this.mode.set('list');
     this.selectedSuiteId.set('');
@@ -113,7 +102,6 @@ export class TestSuiteComponent {
     this.availableTestCases.set([]);
   }
 
-  // Handle module selection
   onModuleSelect(moduleId: string): void {
     this.selectedModuleId = moduleId;
     this.availableTestCases.set(
@@ -121,7 +109,6 @@ export class TestSuiteComponent {
     );
   }
 
-  // Toggle checkbox
   toggleTestCaseSelection(testCase: TestCase, isChecked: boolean): void {
     if (isChecked) {
       this.selectedTestCases.update(current => [...current, testCase]);
@@ -137,65 +124,36 @@ export class TestSuiteComponent {
     this.toggleTestCaseSelection(testCase, isChecked);
   }
 
-  // For checkbox checked status
   isTestCaseSelected(testCase: TestCase): boolean {
     return this.selectedTestCases().some(tc => tc.id === testCase.id);
   }
 
-  // Remove from selected manually
   removeSelectedTestCase(testCaseId: string): void {
     this.selectedTestCases.update(current =>
       current.filter(tc => tc.id !== testCaseId)
     );
   }
 
-  // Save test suite (create or update)
-  // Save test suite (create or update)
-saveTestSuite(): void {
-  if (!this.suiteName.trim()) {
-    this.showAlertMessage('Test suite name is required', 'error');
-    return;
-  }
+  saveTestSuite(): void {
+    if (!this.suiteName.trim()) {
+      this.showAlertMessage('Test suite name is required', 'error');
+      return;
+    }
 
-  if (this.mode() === 'add') {
-    const newSuite = this.testSuiteService.addTestSuite(
-      this.suiteName,
-      this.suiteDescription
-    );
+    if (!this.currentProductId()) {
+      this.showAlertMessage('Product ID is required', 'error');
+      return;
+    }
 
-    this.selectedTestCases().forEach(testCase => {
-      this.testSuiteService.addTestCaseToSuite(newSuite.id, {
-        id: testCase.id,
-        testCaseId: testCase.testCaseId,
-        moduleId: testCase.moduleId,
-        version: testCase.version
-      });
-    });
+    if (this.mode() === 'add') {
+      const newSuite = this.testSuiteService.addTestSuite(
+        this.suiteName,
+        this.currentProductId(),
+        this.suiteDescription
+      );
 
-    this.showAlertMessage('Test suite created successfully', 'success');
-  } else if (this.mode() === 'edit') {
-    const suiteId = this.selectedSuiteId();
-    const updated = this.testSuiteService.updateTestSuite(
-      suiteId,
-      {
-        name: this.suiteName,
-        description: this.suiteDescription
-      }
-    );
-
-    if (updated) {
-      const existingSuite = this.testSuiteService.getTestSuiteById(suiteId);
-      
-      if (existingSuite) {
-        // Remove all existing test cases by their IDs
-        existingSuite.testCases.forEach(tc => {
-          this.testSuiteService.removeTestCaseFromSuite(suiteId, tc.id);
-        });
-      }
-
-      // Add the selected test cases with complete references
       this.selectedTestCases().forEach(testCase => {
-        this.testSuiteService.addTestCaseToSuite(suiteId, {  // Use suiteId instead of newSuite.id
+        this.testSuiteService.addTestCaseToSuite(newSuite.id, {
           id: testCase.id,
           testCaseId: testCase.testCaseId,
           moduleId: testCase.moduleId,
@@ -203,15 +161,43 @@ saveTestSuite(): void {
         });
       });
 
-      this.showAlertMessage('Test suite updated successfully', 'success');
+      this.showAlertMessage('Test suite created successfully', 'success');
+    } else if (this.mode() === 'edit') {
+      const suiteId = this.selectedSuiteId();
+      const updated = this.testSuiteService.updateTestSuite(
+        suiteId,
+        {
+          name: this.suiteName,
+          description: this.suiteDescription
+        }
+      );
+
+      if (updated) {
+        const existingSuite = this.testSuiteService.getTestSuiteById(suiteId);
+        
+        if (existingSuite) {
+          existingSuite.testCases.forEach(tc => {
+            this.testSuiteService.removeTestCaseFromSuite(suiteId, tc.id);
+          });
+        }
+
+        this.selectedTestCases().forEach(testCase => {
+          this.testSuiteService.addTestCaseToSuite(suiteId, {
+            id: testCase.id,
+            testCaseId: testCase.testCaseId,
+            moduleId: testCase.moduleId,
+            version: testCase.version
+          });
+        });
+
+        this.showAlertMessage('Test suite updated successfully', 'success');
+      }
     }
+
+    this.loadTestSuites();
+    setTimeout(() => this.cancelEdit(), 1000);
   }
 
-  this.loadTestSuites();
-  setTimeout(() => this.cancelEdit(), 1000);
-}
-
-  // Delete
   confirmDeleteSuite(suiteId: string): void {
     this.pendingDeleteId.set(suiteId);
     this.alertMessage.set('Are you sure you want to delete this test suite?');
@@ -241,7 +227,6 @@ saveTestSuite(): void {
     this.pendingDeleteId.set(null);
   }
 
-  // Utility: show alert
   private showAlertMessage(message: string, type: 'success' | 'error' | 'warning'): void {
     this.alertMessage.set(message);
     this.alertType.set(type);
@@ -249,7 +234,6 @@ saveTestSuite(): void {
     setTimeout(() => this.showAlert.set(false), 3000);
   }
 
-  // Utility: get module name
   getModuleName(moduleId: string): string {
     const module = this.modules().find(m => m.id === moduleId);
     return module ? module.name : 'Unknown Module';

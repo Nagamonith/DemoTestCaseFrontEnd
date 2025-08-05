@@ -1,7 +1,6 @@
-// test-suite.service.ts
 import { Injectable, signal } from '@angular/core';
 import { TestCaseRef, TestSuite } from 'src/app/shared/modles/test-suite.model';
-import { DUMMY_TEST_SUITES} from 'src/app/shared/data/ummy-test-suites'
+import { DUMMY_TEST_SUITES } from 'src/app/shared/data/ummy-test-suites';
 import { TestCase } from 'src/app/shared/data/dummy-testcases';
 import { TestCaseService } from './test-case.service';
 
@@ -21,7 +20,10 @@ export class TestSuiteService {
     }));
   }
 
-  getTestSuites() {
+  getTestSuites(productId?: string): TestSuite[] {
+    if (productId) {
+      return this.testSuites().filter(suite => suite.productId === productId);
+    }
     return this.testSuites();
   }
 
@@ -29,16 +31,21 @@ export class TestSuiteService {
     return this.testSuites().find(suite => suite.id === id);
   }
 
-  addTestSuite(name: string, description: string = ''): TestSuite {
+  addTestSuite(name: string, productId: string, description: string = ''): TestSuite {
+    if (!name?.trim()) throw new Error('Test suite name is required');
+    if (!productId) throw new Error('Product ID is required');
+
     const newSuite: TestSuite = {
       id: `suite${Date.now()}`,
-      name,
+      name: name.trim(),
+      productId,
       description,
       testCases: [],
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      isActive: true,
     };
-    
+
     this.testSuites.update(current => [...current, newSuite]);
     return newSuite;
   }
@@ -67,24 +74,24 @@ export class TestSuiteService {
     }
     return false;
   }
-addTestCaseToSuite(suiteId: string, testCaseRef: TestCaseRef): boolean {
-  const suite = this.getTestSuiteById(suiteId);
-  if (!suite) return false;
 
-  // Check if test case already exists in suite
-  if (suite.testCases.some(tc => tc.id === testCaseRef.id)) {
-    return false;
+  addTestCaseToSuite(suiteId: string, testCaseRef: TestCaseRef): boolean {
+    const suite = this.getTestSuiteById(suiteId);
+    if (!suite) return false;
+
+    if (suite.testCases.some(tc => tc.id === testCaseRef.id)) {
+      return false;
+    }
+
+    this.testSuites.update(current => 
+      current.map(s => s.id === suiteId ? {
+        ...s,
+        testCases: [...s.testCases, testCaseRef],
+        updatedAt: new Date()
+      } : s)
+    );
+    return true;
   }
-
-  this.testSuites.update(current => 
-    current.map(s => s.id === suiteId ? {
-      ...s,
-      testCases: [...s.testCases, testCaseRef],
-      updatedAt: new Date()
-    } : s)
-  );
-  return true;
-}
 
   removeTestCaseFromSuite(suiteId: string, testCaseId: string): boolean {
     const suite = this.getTestSuiteById(suiteId);

@@ -25,10 +25,16 @@
         <td><strong>Steps</strong></td>
         <td class="wrap-text">{{ testCase.steps }}</td>
       </tr>
-      <tr>
-        <td><strong>Expected</strong></td>
-        <td class="wrap-text">{{ testCase.expected }}</td>
-      </tr>
+     <tr>
+  <td><strong>Expected</strong></td>
+  <td class="wrap-text">
+    <div *ngFor="let step of testCase.steps">
+      {{ step.expectedResult }}
+    </div>
+  </td>
+</tr>
+
+
       <tr>
         <td><strong>Scenario</strong></td>
         <td class="wrap-text">{{ testCase.scenario }}</td>

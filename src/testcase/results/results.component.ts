@@ -131,21 +131,20 @@ export class ResultsComponent {
   });
 
 exportResults(): void {
-  // Call modules() to get the array value
   const module = this.modules().find(m => m.id === this.selectedModule());
   if (!module) return;
 
-  const data = this.filteredTestCases().map(tc => ({
-    'Sl.No': tc.slNo,
+  const data = this.filteredTestCases().map((tc, index) => ({
+    'Sl.No': index + 1,
     'Test Case ID': tc.testCaseId,
     'Use Case': tc.useCase,
     'Scenario': tc.scenario,
-    'Steps': tc.steps,
-    'Expected': tc.expected,
-    'Result': tc.result,
+    'Steps': tc.steps?.map(s => s.steps).join('\n') || '',
+    'Expected': tc.steps?.map(s => s.expectedResult).join('\n') || '',
+    'Result': tc.result || '',
     'Actual': tc.actual || '',
     'Remarks': tc.remarks || '',
-    ...tc.attributes.reduce((acc, attr) => {
+    ...tc.attributes?.reduce((acc, attr) => {
       acc[attr.key] = attr.value;
       return acc;
     }, {} as Record<string, string>)
@@ -156,6 +155,7 @@ exportResults(): void {
   XLSX.utils.book_append_sheet(wb, ws, 'Test Results');
   XLSX.writeFile(wb, `${module.name}_Test_Results.xlsx`);
 }
+
 
 getModuleName(moduleId: string): string {
   // Call modules() to get the array value

@@ -33,16 +33,17 @@ export class ProductService {
    * Add a new product.
    * Returns Observable to simulate HTTP response.
    */
-  addProduct(name: string): Observable<void> {
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      name: name,
-      editing: false
-    };
-    const current = this.products.value;
-    this.products.next([...current, newProduct]);
-    return of(undefined).pipe(delay(200)); // Simulate API delay
-  }
+addProduct(name: string): Observable<void> {
+  const newProduct: Product = {
+    id: Date.now().toString(),
+    name: name,
+    isActive: true, // ✅ Add this line
+    editing: false
+  };
+  const current = this.products.value;
+  this.products.next([...current, newProduct]);
+  return of(undefined).pipe(delay(200)); // Simulate API delay
+}
 
   /**
    * Update an existing product.

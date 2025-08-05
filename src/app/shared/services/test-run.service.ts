@@ -44,7 +44,10 @@ export class TestRunService {
     }));
   }
 
-  getTestRuns(): TestRun[] {
+  getTestRuns(productId?: string): TestRun[] {
+    if (productId) {
+      return this.testRuns().filter(run => run.productId === productId);
+    }
     return this.testRuns();
   }
 
@@ -58,8 +61,15 @@ export class TestRunService {
     testSuites: TestSuite[],
     createdBy: string = 'currentUser'
   ): TestRun {
+    if (testSuites.length === 0) {
+      throw new Error('At least one test suite must be provided to create a test run.');
+    }
+
+    const productId = testSuites[0].productId;
+
     const newRun: TestRun = {
       id: `run${Date.now()}`,
+      productId,
       name,
       description,
       testSuites: this.mapSuites(testSuites),

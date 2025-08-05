@@ -98,14 +98,29 @@
     </thead>
 
     <tbody>
-      <tr *ngFor="let testCase of filteredTestCases()">
-        <td>{{testCase.slNo}}</td>
-        <td>{{testCase.version}}</td>
-        <td>{{testCase.testCaseId}}</td>
-        <td class="wrap-text">{{testCase.useCase}}</td>
-        <td class="wrap-text">{{testCase.scenario}}</td>
-        <td class="wrap-text">{{testCase.steps}}</td>
-        <td class="wrap-text">{{testCase.expected}}</td>
+  <tr *ngFor="let testCase of filteredTestCases(); let i = index">
+    <td>{{ i + 1 }}</td>
+    <td>{{ testCase.version }}</td>
+    <td>{{ testCase.testCaseId }}</td>
+    <td class="wrap-text">{{ testCase.useCase }}</td>
+    <td class="wrap-text">{{ testCase.scenario }}</td>
+
+    <!-- Steps Column -->
+<td class="wrap-text">
+  <div *ngFor="let step of testCase.steps; let last = last">
+    {{ step.steps }}
+    <hr *ngIf="!last" />
+  </div>
+</td>
+
+<!-- Expected Column -->
+<td class="wrap-text">
+  <div *ngFor="let step of testCase.steps; let last = last">
+    {{ step.expectedResult }}
+    <hr *ngIf="!last" />
+  </div>
+</td>
+
         
         <!-- Dynamic attribute values -->
         <td *ngFor="let attrName of getUniqueAttributeNames()" class="wrap-text">
@@ -139,11 +154,13 @@
     <form [formGroup]="form" (ngSubmit)="saveTestCase()" class="test-case-form">
       <h3>{{ form.value.id ? 'Edit' : 'Add' }} Test Case</h3>
 
-   <div class="form-group">
+<div class="form-group">
+  <!-- Add this near your form for debugging -->
+
   <label>Version:</label>
   <select formControlName="version">
     <option *ngFor="let version of versions()" [value]="version">
-      {{ version }} 
+      {{ version }}
     </option>
   </select>
   <div *ngIf="form.get('version')?.invalid && form.get('version')?.touched" class="error-message">

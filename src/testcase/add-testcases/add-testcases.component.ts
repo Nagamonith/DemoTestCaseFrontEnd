@@ -95,7 +95,7 @@ addNewVersion(): void {
   this.selectedVersion.set(productVersion.version);
   this.resetForms();
 }
- exportToExcel(): void {
+exportToExcel(): void {
   if (!this.selectedModule()) {
     alert('Please select a module first');
     return;
@@ -105,25 +105,34 @@ addNewVersion(): void {
   if (!module) return;
 
   const wb = XLSX.utils.book_new();
-  
-  // Get version strings, not ProductVersion objects
+
+  // Get version strings, not full objects
   const versionStrings = this.testCaseService.getVersionStringsByProduct(module.productId);
 
   versionStrings.forEach(version => {
     const testCases = this.testCaseService
       .getTestCasesByModuleAndVersion(this.selectedModule()!, version)
-      .map(tc => ({
-        'Sl.No': tc.slNo,
-        'Test Case ID': tc.testCaseId,
-        'Use Case': tc.useCase,
-        'Scenario': tc.scenario,
-        'Steps': tc.steps,
-        'Expected': tc.expected,
-        ...tc.attributes.reduce((acc, attr) => {
+      .map(tc => {
+        const stepText = tc.steps?.map((step, idx) =>
+          `${idx + 1}. ${step.steps} → ${step.expectedResult}`
+        ).join('\n') || '';
+
+        const attributes = tc.attributes?.reduce((acc, attr) => {
           acc[attr.key] = attr.value;
           return acc;
-        }, {} as Record<string, string>)
-      }));
+        }, {} as Record<string, string>) || {};
+
+        return {
+          'Test Case ID': tc.testCaseId,
+          'Use Case': tc.useCase,
+          'Scenario': tc.scenario,
+          'Steps': stepText,
+          'Result': tc.result || '',
+          'Actual': tc.actual || '',
+          'Remarks': tc.remarks || '',
+          ...attributes
+        };
+      });
 
     if (testCases.length > 0) {
       const ws = XLSX.utils.json_to_sheet(testCases);
@@ -133,6 +142,7 @@ addNewVersion(): void {
 
   XLSX.writeFile(wb, `${module.name.replace(/\s+/g, '_')}_Test_Cases.xlsx`);
 }
+
 
   private resetForms(): void {
     this.showAddModuleForm = false;
