@@ -146,19 +146,11 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   private boundOnResize = this.onResize.bind(this);
   private boundStopResize = this.stopResize.bind(this);
   private productId = signal<string | null>(null);
+  selectedProductId = signal<string | null>(null);
 
+  // Fixed column definitions with proper field mappings
   viewColumns: TableColumn[] = [
-    { field: 'slNo', header: 'Sl No', width: 80 },
-    { header: 'Version', field: 'version', width: 100 },
-    { field: 'useCase', header: 'Use Case', width: 150 },
-    { field: 'testCaseId', header: 'Test Case ID', width: 120 },
-    { field: 'scenario', header: 'Scenario', width: 200 },
-    { field: 'steps', header: 'Steps', width: 200 },
-    { field: 'expected', header: 'Expected', width: 200 }
-  ];
-
-  testColumns: TableColumn[] = [
-    { field: 'slNo', header: 'Sl No', width: 80 },
+    { field: 'slNo', header: 'Sl No', width: 80, noResize: true },
     { field: 'version', header: 'Version', width: 100 },
     { field: 'useCase', header: 'Use Case', width: 150 },
     { field: 'testCaseId', header: 'Test Case ID', width: 120 },
@@ -167,35 +159,55 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     { field: 'expected', header: 'Expected', width: 200 }
   ];
 
-ngOnInit(): void {
-  this.initializeData();
-  this.autoSaveService.start(() => this.onSave());
-  
-  this.route.queryParamMap.subscribe(queryParams => {
-    const productId = queryParams.get('productId');
-    this.selectedProductId.set(productId);
+  testColumns: TableColumn[] = [
+    { field: 'slNo', header: 'Sl No', width: 80, noResize: true },
+    { field: 'version', header: 'Version', width: 100 },
+    { field: 'useCase', header: 'Use Case', width: 150 },
+    { field: 'testCaseId', header: 'Test Case ID', width: 120 },
+    { field: 'scenario', header: 'Scenario', width: 200 },
+    { field: 'steps', header: 'Steps', width: 200 },
+    { field: 'expected', header: 'Expected', width: 200 }
+  ];
+
+  // Computed filtered modules
+  filteredModules = computed(() => {
+    const pid = this.selectedProductId();
+    const allModules = this.modules();
     
-    // Rest of your query param handling
-    const shouldLoadAll = queryParams.get('loadAllVersions') === 'true';
-    if (shouldLoadAll && this.selectedModule() && !this.showTestSuites) {
-      this.selectedVersion = 'all';
-      this.onVersionChange();
-    }
+    if (!pid) return allModules;
+    
+    return allModules.filter(m => m.productId === pid);
   });
 
-  this.route.paramMap.subscribe((pm: ParamMap) => {
-    const modId = pm.get('moduleId');
-    const fallback = this.modules().length ? this.modules()[0].id : null;
-    this.onSelectionChange(modId ?? fallback ?? '');
-  });
+  ngOnInit(): void {
+    this.initializeData();
+    this.autoSaveService.start(() => this.onSave());
+    
+    this.route.queryParamMap.subscribe(queryParams => {
+      const productId = queryParams.get('productId');
+      this.selectedProductId.set(productId);
+      
+      const shouldLoadAll = queryParams.get('loadAllVersions') === 'true';
+      if (shouldLoadAll && this.selectedModule() && !this.showTestSuites) {
+        this.selectedVersion = 'all';
+        this.onVersionChange();
+      }
+    });
 
-  window.addEventListener('resize', this.updateScrollButtons.bind(this));
-}
+    this.route.paramMap.subscribe((pm: ParamMap) => {
+      const modId = pm.get('moduleId');
+      const fallback = this.filteredModules().length ? this.filteredModules()[0].id : null;
+      this.onSelectionChange(modId ?? fallback ?? '');
+    });
+
+    window.addEventListener('resize', this.updateScrollButtons.bind(this));
+  }
 
   private initializeData(): void {
     this.modules.set(this.testCaseService.getModules());
     this.testCasePool.set(this.testCaseService.getTestCases());
     this.extractAvailableAttributes();
+    this.initializeAttributeColumns();
   }
 
   ngAfterViewInit(): void {
@@ -216,7 +228,7 @@ ngOnInit(): void {
     }
   }
 
-  // Suite selection methods
+  // Fixed suite selection methods
   isSuiteSelected(suiteId: string): boolean {
     return this.selectedSuiteIds.includes(suiteId);
   }
@@ -250,6 +262,7 @@ ngOnInit(): void {
     return this.selectedSuiteIds.length > 0;
   }
 
+  // Fixed suite status methods
   isSuiteComplete(suiteId: string): boolean {
     const suiteCases = this.getTestCasesForSuite(suiteId);
     return suiteCases.length > 0 && suiteCases.every(tc => tc.result === 'Pass');
@@ -290,6 +303,7 @@ ngOnInit(): void {
     return suite?.testCases.length || 0;
   }
 
+  // Fixed view and start testing methods
   viewAllSelectedCases(): void {
     let cases: TestCase[] = [];
     
@@ -366,33 +380,33 @@ ngOnInit(): void {
     }
   }
 
- onSelectionChange(id: string): void {
-  if (!id) return;
+  // Fixed selection change method
+  onSelectionChange(id: string): void {
+    if (!id) return;
 
-  // Reset view states when changing selection
-  this.showViewTestCases = false;
-  this.showStartTesting = false;
-  this.formArray.clear();
-  this.uploads = [];
+    // Reset view states when changing selection
+    this.showViewTestCases = false;
+    this.showStartTesting = false;
+    this.formArray.clear();
+    this.uploads = [];
 
-  if (this.showTestSuites) {
-    this.handleTestSuiteSelection(id);
-  } else if (this.showTestRuns) {
-    this.onTestRunChange(id);
-  } else {
-    this.handleModuleSelection(id);
+    if (this.showTestSuites) {
+      this.handleTestSuiteSelection(id);
+    } else if (this.showTestRuns) {
+      this.onTestRunChange(id);
+    } else {
+      this.handleModuleSelection(id);
+    }
   }
-}
 
   private handleModuleSelection(id: string): void {
-    if (!this.modules().some(m => m.id === id)) return;
+    if (!this.filteredModules().some(m => m.id === id)) return;
 
     this.selectedModule.set(id);
     this.availableVersions = this.testCaseService
-  .getVersionsByProduct(id)
-  .map(v => v.version);
+      .getVersionsByProduct(this.getModuleProductId(id) || '')
+      .map(v => v.version);
 
-    
     if (this.availableVersions.length > 0) {
       this.selectedVersion = this.availableVersions[0];
       const cases = this.testCasePool().filter(
@@ -407,6 +421,11 @@ ngOnInit(): void {
     this.showViewTestCases = false;
     this.showStartTesting = false;
     this.initializeFormForTestCases();
+  }
+
+  private getModuleProductId(moduleId: string): string | undefined {
+    const module = this.modules().find(m => m.id === moduleId);
+    return module?.productId;
   }
 
   private handleTestSuiteSelection(suiteId: string): void {
@@ -442,6 +461,10 @@ ngOnInit(): void {
           : []
       );
     });
+
+    // Re-extract attributes after loading new test cases
+    this.extractAvailableAttributes();
+    this.initializeAttributeColumns();
 
     setTimeout(() => {
       this.updateScrollButtons();
@@ -486,21 +509,22 @@ ngOnInit(): void {
     }
   }
 
-hasTestCasesToView(): boolean {
-  if (this.showTestRuns) {
-    return !!this.selectedTestRun()?.testSuites?.length;
+  hasTestCasesToView(): boolean {
+    if (this.showTestRuns) {
+      return !!this.selectedTestRun()?.testSuites?.length;
+    }
+    
+    if (this.selectedModule()) {
+      const moduleCases = this.testCasePool().filter(
+        tc => tc.moduleId === this.selectedModule()
+      );
+      return moduleCases.length > 0;
+    }
+    
+    return false;
   }
-  
-  // For modules view
-  if (this.selectedModule()) {
-    const moduleCases = this.testCasePool().filter(
-      tc => tc.moduleId === this.selectedModule()
-    );
-    return moduleCases.length > 0;
-  }
-  
-  return false;
-}
+
+  // Fixed save method
   onSave(): void {
     const formValues = this.formArray.value;
     const testCases = this.versionTestCases();
@@ -532,7 +556,7 @@ hasTestCasesToView(): boolean {
       this.updateTestRunProgress();
     }
 
-  console.log('Test results saved successfully!', 'success');
+    console.log('Test results saved successfully!', 'success');
     this.cdRef.detectChanges();
   }
 
@@ -564,14 +588,22 @@ hasTestCasesToView(): boolean {
     this.testRunService.updateTestRun(this.selectedTestRunId()!, { status });
   }
 
+  // Fixed attribute handling methods
   extractAvailableAttributes(): void {
     const allAttributes = new Set<string>();
-    this.testCasePool().forEach(tc => {
+    this.versionTestCases().forEach(tc => {
       tc.attributes?.forEach(attr => {
         allAttributes.add(attr.key);
       });
     });
     this.availableAttributes = Array.from(allAttributes);
+  }
+
+  private initializeAttributeColumns(): void {
+    this.attributeColumns = [];
+    this.availableAttributes.forEach(key => {
+      this.addAttributeColumn(key);
+    });
   }
 
   addAttributeColumn(key: string): void {
@@ -585,22 +617,47 @@ hasTestCasesToView(): boolean {
     }
   }
 
+  removeAttributeColumn(key: string): void {
+    this.attributeColumns = this.attributeColumns.filter(
+      col => col.field !== `attr_${key}`
+    );
+  }
+
   getAttributeValue(testCase: TestCase, key: string): string {
     const attr = testCase.attributes?.find(a => a.key === key);
     return attr ? attr.value : '';
   }
 
-getCellValue(testCase: TestCase, field: string, index?: number): string {
-  if (field === 'slNo' && index !== undefined) {
-    return (index + 1).toString();
+  // Fixed getCellValue method with proper field handling
+  getCellValue(testCase: TestCase, field: string, index?: number): string {
+    if (field === 'slNo' && index !== undefined) {
+      return (index + 1).toString();
+    }
+    
+    if (field.startsWith('attr_')) {
+      const attrKey = field.substring(5);
+      return this.getAttributeValue(testCase, attrKey);
+    }
+
+    // Handle steps field specially
+    if (field === 'steps') {
+      if (testCase.steps && testCase.steps.length > 0) {
+        return testCase.steps.map(step => step.steps).join('; ');
+      }
+      return '';
+    }
+
+    // Handle expected field
+    if (field === 'expected') {
+      if (testCase.steps && testCase.steps.length > 0) {
+        return testCase.steps.map(step => step.expectedResult).join('; ');
+      }
+      return '';
+    }
+
+    const value = testCase[field as keyof TestCase];
+    return value !== undefined && value !== null ? value.toString() : '';
   }
-  if (field.startsWith('attr_')) {
-    const attrKey = field.substring(5);
-    return this.getAttributeValue(testCase, attrKey);
-  }
-  const value = testCase[field as keyof TestCase];
-  return value !== undefined && value !== null ? value.toString() : '';
-}
 
   onUpload(event: Event, index: number): void {
     const input = event.target as HTMLInputElement;
@@ -633,24 +690,26 @@ getCellValue(testCase: TestCase, field: string, index?: number): string {
       : [];
   }
 
+  // Fixed filtering method with attribute support
   filteredAndSearchedTestCases(): TestCase[] {
     return (this.showTestSuites || this.showTestRuns ? this.versionTestCases() : this.filteredTestCases())
       .filter((tc, i) => {
         const form = this.formGroups()[i];
-        const matchesAttribute =
-          !this.filter.attributeKey ||
-          (this.filter.attributeValue &&
-            this.getAttributeValue(tc, this.filter.attributeKey)
-              .toLowerCase()
-              .includes(this.filter.attributeValue.toLowerCase()));
+        const matchesSlNo = !this.filter.slNo || 
+          (i + 1).toString().includes(this.filter.slNo);
+        const matchesTestCaseId = !this.filter.testCaseId || 
+          tc.testCaseId.toLowerCase().includes(this.filter.testCaseId.toLowerCase());
+        const matchesUseCase = !this.filter.useCase || 
+          tc.useCase.toLowerCase().includes(this.filter.useCase.toLowerCase());
+        const matchesResult = !this.filter.result || 
+          form.get('result')?.value === this.filter.result;
+        
+        const matchesAttribute = !this.filter.attributeKey || !this.filter.attributeValue ||
+          this.getAttributeValue(tc, this.filter.attributeKey)
+            .toLowerCase()
+            .includes(this.filter.attributeValue.toLowerCase());
 
-        return (
-          
-          (!this.filter.testCaseId || tc.testCaseId.toLowerCase().includes(this.filter.testCaseId.toLowerCase())) &&
-          (!this.filter.useCase || tc.useCase.toLowerCase().includes(this.filter.useCase.toLowerCase())) &&
-          (!this.filter.result || form.get('result')?.value === this.filter.result) &&
-          matchesAttribute
-        );
+        return matchesSlNo && matchesTestCaseId && matchesUseCase && matchesResult && matchesAttribute;
       });
   }
 
@@ -658,11 +717,14 @@ getCellValue(testCase: TestCase, field: string, index?: number): string {
     return this.formArray.controls as FormGroup[];
   }
 
+  // Fixed popup methods
   openPopup(index: number, field: 'actual' | 'remarks', event: MouseEvent) {
     event.stopPropagation();
 
     if (!(this.isPopupOpen && this.popupIndex === index && this.popupField === field)) {
-      this.closePopup(this.popupIndex!);
+      if (this.popupIndex !== null) {
+        this.closePopup(this.popupIndex);
+      }
       
       this.popupIndex = index;
       this.popupField = field;
@@ -709,6 +771,7 @@ getCellValue(testCase: TestCase, field: string, index?: number): string {
     }
   }
 
+  // Scroll and resize methods remain the same
   scrollTable(offset: number): void {
     if (!this.scrollContainer) return;
     this.scrollContainer.scrollLeft += offset;
@@ -835,14 +898,161 @@ getCellValue(testCase: TestCase, field: string, index?: number): string {
     this.uploads = [];
   }
 
-  selectedProductId = signal<string | null>(null);
- filteredModules = computed(() => {
-  const pid = this.selectedProductId();
-  const allModules = this.modules();
-  
-  // If no productId is selected, return all modules
-  if (!pid) return allModules;
-  
-  return allModules.filter(m => m.productId === pid);
-});
+  // Additional attribute management methods
+  onAttributeFilterChange(): void {
+    // Trigger re-filtering when attribute filter changes
+    this.cdRef.detectChanges();
+  }
+
+  getAvailableAttributeKeys(): string[] {
+    return this.availableAttributes;
+  }
+
+  addAttributeFilter(key: string): void {
+    this.filter.attributeKey = key;
+    this.filter.attributeValue = '';
+  }
+
+  removeAttributeFilter(): void {
+    this.filter.attributeKey = undefined;
+    this.filter.attributeValue = undefined;
+  }
+
+  hasAttributeFilter(): boolean {
+    return !!this.filter.attributeKey;
+  }
+
+  // Utility method to get all unique attribute values for a specific key
+  getAttributeValues(key: string): string[] {
+    const values = new Set<string>();
+    this.versionTestCases().forEach(tc => {
+      const attr = tc.attributes?.find(a => a.key === key);
+      if (attr && attr.value) {
+        values.add(attr.value);
+      }
+    });
+    return Array.from(values).sort();
+  }
+
+  // Method to toggle attribute column visibility
+  toggleAttributeColumn(key: string): void {
+    const exists = this.attributeColumns.some(col => col.field === `attr_${key}`);
+    if (exists) {
+      this.removeAttributeColumn(key);
+    } else {
+      this.addAttributeColumn(key);
+    }
+  }
+
+  isAttributeColumnVisible(key: string): boolean {
+    return this.attributeColumns.some(col => col.field === `attr_${key}`);
+  }
+
+  // Method to get all combined columns (regular + attribute)
+  getAllViewColumns(): TableColumn[] {
+    return [...this.viewColumns, ...this.attributeColumns];
+  }
+
+  getAllTestColumns(): TableColumn[] {
+    return [...this.testColumns, ...this.attributeColumns];
+  }
+
+  // Enhanced method to get module name for display
+  getModuleName(moduleId: string): string {
+    const module = this.modules().find(m => m.id === moduleId);
+    return module?.name || 'Unknown Module';
+  }
+
+  // Method to check if current view has test cases with attributes
+  hasTestCasesWithAttributes(): boolean {
+    return this.versionTestCases().some(tc => tc.attributes && tc.attributes.length > 0);
+  }
+
+  // Method to get attribute statistics
+  getAttributeStats(): { [key: string]: { [value: string]: number } } {
+    const stats: { [key: string]: { [value: string]: number } } = {};
+    
+    this.versionTestCases().forEach(tc => {
+      tc.attributes?.forEach(attr => {
+        if (!stats[attr.key]) {
+          stats[attr.key] = {};
+        }
+        if (!stats[attr.key][attr.value]) {
+          stats[attr.key][attr.value] = 0;
+        }
+        stats[attr.key][attr.value]++;
+      });
+    });
+    
+    return stats;
+  }
+
+  // Method to export test cases with attributes
+  exportTestCasesWithAttributes(): void {
+    const cases = this.filteredAndSearchedTestCases();
+    const csvContent = this.generateCsvContent(cases);
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `test_cases_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  private generateCsvContent(testCases: TestCase[]): string {
+    const headers = [
+      'Test Case ID', 'Use Case', 'Scenario', 'Version', 'Result', 'Actual', 'Remarks'
+    ];
+    
+    // Add attribute headers
+    this.availableAttributes.forEach(attr => {
+      headers.push(`Attribute: ${attr}`);
+    });
+
+    const rows = testCases.map(tc => {
+      const row = [
+        tc.testCaseId,
+        tc.useCase,
+        tc.scenario,
+        tc.version,
+        tc.result || 'Pending',
+        tc.actual || '',
+        tc.remarks || ''
+      ];
+
+      // Add attribute values
+      this.availableAttributes.forEach(attr => {
+        row.push(this.getAttributeValue(tc, attr));
+      });
+
+      return row.map(cell => `"${cell.toString().replace(/"/g, '""')}"`).join(',');
+    });
+
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  // Method to clear all filters
+  clearAllFilters(): void {
+    this.filter = {
+      slNo: '',
+      testCaseId: '',
+      useCase: '',
+      result: '',
+      attributeKey: undefined,
+      attributeValue: undefined
+    };
+  }
+
+  // Method to check if any filters are active
+  hasActiveFilters(): boolean {
+    return !!(
+      this.filter.slNo ||
+      this.filter.testCaseId ||
+      this.filter.useCase ||
+      this.filter.result ||
+      this.filter.attributeKey ||
+      this.filter.attributeValue
+    );
+  }
 }

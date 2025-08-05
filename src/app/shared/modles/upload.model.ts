@@ -12,7 +12,7 @@ export interface Upload {
 }
 
 export interface TestCaseUpload {
-  id?: string;
+  
   testCaseId: string;
   uploadId: string;
   createdAt?: Date;
